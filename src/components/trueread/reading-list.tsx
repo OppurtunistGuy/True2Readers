@@ -7,7 +7,9 @@ import {
   BookmarkCheck,
   BookOpen,
   Clock,
+  Copy,
   ListX,
+  Sparkles,
   X,
 } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
@@ -16,6 +18,13 @@ import { Button } from '@/components/ui/button'
 import { estimateReadingTime } from './reading-insights'
 import { cn } from '@/lib/utils'
 
+/**
+ * Reading-list capacity — used purely for the progress bar visual. Books are
+ * still accepted past this cap (the parent enforces its own hard cap of 30
+ * via MAX_READING_LIST in page.tsx). This is a "goal" indicator, not a limit.
+ */
+const READING_LIST_GOAL = 20
+
 export interface ReadingListProps {
   books: Book[]
   onRemove: (id: string) => void
@@ -23,6 +32,8 @@ export interface ReadingListProps {
   onSelect: (book: Book) => void
   isOpen: boolean
   onToggle: () => void
+  /** Optional toast notifier (used for the "Copy all titles" feedback). */
+  onToast?: (toast: { title: string; description?: string; duration?: number }) => void
 }
 
 /**
@@ -37,7 +48,47 @@ export function ReadingList({
   onSelect,
   isOpen,
   onToggle,
+  onToast,
 }: ReadingListProps) {
+  // "Copy all titles" — copies a real, plain-text list of every saved book
+  // (title + author + year) to the clipboard. Surfaces a toast on both
+  // success and failure so the user always knows what happened.
+  const handleCopyAll = React.useCallback(async () => {
+    if (books.length === 0) return
+    const lines = books.map((b, i) => {
+      const author = b.authors.length > 0 ? b.authors.join(', ') : 'Unknown author'
+      const year = b.year ? ` (${b.year})` : ''
+      return `${i + 1}. ${b.title} — ${author}${year}`
+    })
+    const text = `My TrueRead reading list (${books.length} book${books.length !== 1 ? 's' : ''}):\n\n${lines.join('\n')}`
+    let succeeded = false
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        succeeded = true
+      }
+    } catch {
+      succeeded = false
+    }
+    if (succeeded) {
+      onToast?.({
+        title: 'Reading list copied',
+        description: `${books.length} book${books.length !== 1 ? 's' : ''} ready to paste anywhere.`,
+        duration: 2400,
+      })
+    } else {
+      onToast?.({
+        title: 'Couldn’t copy automatically',
+        description: 'Your browser blocked clipboard access.',
+        duration: 3000,
+      })
+    }
+  }, [books, onToast])
+
+  // Progress toward the soft "goal" — capped at 100% for the bar width.
+  const progressPct = Math.min(100, (books.length / READING_LIST_GOAL) * 100)
+  const goalReached = books.length >= READING_LIST_GOAL
+
   return (
     <>
       {/* Floating trigger button — visible when panel is closed */}
@@ -107,12 +158,24 @@ export function ReadingList({
                     {books.length > 0 && (
                       <button
                         type="button"
+                        onClick={handleCopyAll}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                        aria-label="Copy all titles to clipboard"
+                        title="Copy all titles"
+                      >
+                        <Copy className="size-3.5" strokeWidth={2} />
+                        <span className="hidden sm:inline">Copy all</span>
+                      </button>
+                    )}
+                    {books.length > 0 && (
+                      <button
+                        type="button"
                         onClick={onClear}
                         className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                         aria-label="Clear reading list"
                       >
                         <ListX className="size-3.5" strokeWidth={2} />
-                        Clear
+                        <span className="hidden sm:inline">Clear</span>
                       </button>
                     )}
                     <button
@@ -125,6 +188,32 @@ export function ReadingList({
                     </button>
                   </div>
                 </div>
+
+                {/* Progress toward soft goal — only shown when there's at least 1 book. */}
+                {books.length > 0 && (
+                  <div className="mt-3">
+                    <div className="mb-1 flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                      <span>{goalReached ? 'Goal reached' : 'Reading goal'}</span>
+                      <span className="text-slate-500">
+                        {books.length} / {READING_LIST_GOAL}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPct}%` }}
+                        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        className={cn(
+                          'h-full rounded-full',
+                          goalReached
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-700'
+                            : 'bg-blue-500',
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Stats row — total reading time derived from real page counts */}
                 {books.length > 0 && (() => {
                   const totalMinutes = books.reduce((sum, b) => {
@@ -162,16 +251,27 @@ export function ReadingList({
               {/* Book list */}
               <div className="flex-1 overflow-y-auto">
                 {books.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-                    <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                      <Bookmark className="size-6" strokeWidth={1.75} />
+                  <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+                    <span className="inline-flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-slate-100 text-blue-500 ring-1 ring-blue-100/60">
+                      <Bookmark className="size-7" strokeWidth={1.75} />
                     </span>
-                    <p className="text-sm font-medium text-slate-600">
-                      No books saved yet
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Click the bookmark icon on any book to save it here.
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-700">
+                        Your reading list is empty
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Save books as you browse and they&rsquo;ll appear here —
+                        complete with estimated reading time.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onToggle}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    >
+                      <Sparkles className="size-3.5" strokeWidth={2.25} />
+                      Browse books
+                    </button>
                   </div>
                 ) : (
                   <ul className="divide-y divide-slate-100">

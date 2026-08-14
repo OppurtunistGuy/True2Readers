@@ -26,6 +26,9 @@ import {
   Coffee,
 } from 'lucide-react'
 import { SearchBar } from './search-bar'
+import { SurpriseMe } from './surprise-me'
+import { RecentlyViewed } from './recently-viewed'
+import type { Book } from '@/components/trueread/types'
 
 export interface HomeViewProps {
   onSearch: (q: string) => void
@@ -37,6 +40,14 @@ export interface HomeViewProps {
   searchInputRef?: React.Ref<HTMLInputElement>
   /** Number of books in reading list — shown as a stat. */
   readingListCount?: number
+  /** Recently-viewed books (most-recent-first). Shown as a strip on home. */
+  recentlyViewed?: Book[]
+  /** Open a recently-viewed book's detail. */
+  onSelectBook?: (book: Book) => void
+  /** Clear the recently-viewed list. */
+  onClearRecentlyViewed?: () => void
+  /** Remove a single book from recently-viewed. */
+  onRemoveRecentlyViewed?: (id: string) => void
 }
 
 const SUGGESTIONS = [
@@ -126,6 +137,10 @@ export function HomeView({
   onClearRecent,
   searchInputRef,
   readingListCount = 0,
+  recentlyViewed = [],
+  onSelectBook,
+  onClearRecentlyViewed,
+  onRemoveRecentlyViewed,
 }: HomeViewProps) {
   const [value, setValue] = React.useState('')
 
@@ -274,8 +289,31 @@ export function HomeView({
               </div>
             </motion.div>
           )}
+
+          {/* Surprise me — secondary CTA under the search. Picks a random real
+              genre and runs the existing search pipeline. */}
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+            className="mt-8 flex justify-center"
+          >
+            <SurpriseMe onSearch={onSearch} disabled={isLoading} variant="hero" />
+          </motion.div>
         </div>
       </section>
+
+      {/* Recently viewed — horizontal strip of books the user already opened.
+          Hidden entirely when empty (no empty state needed for an ambient
+          recollection surface). */}
+      {recentlyViewed.length > 0 && onSelectBook && (
+        <RecentlyViewed
+          books={recentlyViewed}
+          onSelect={onSelectBook}
+          onClear={onClearRecentlyViewed}
+          onRemove={onRemoveRecentlyViewed}
+        />
+      )}
 
       {/* Mood Match — quick-pick mood chips mapping to real genre searches */}
       <section

@@ -13,6 +13,7 @@ import {
   Maximize2,
   ArrowRight,
   Grid3X3,
+  Printer,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +71,11 @@ const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
         keys: ['R'],
         description: 'Toggle reading mode (detail view)',
         icon: <Maximize2 className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['P'],
+        description: 'Print or save as PDF (detail view)',
+        icon: <Printer className="size-4 text-blue-500" strokeWidth={2} />,
       },
       {
         keys: ['↑', '↓', '←', '→'],

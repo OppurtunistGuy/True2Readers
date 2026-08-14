@@ -349,4 +349,81 @@
   *::-webkit-scrollbar-thumb:hover {
     background-color: oklch(0.78 0.03 255);
   }
+
+  /* Horizontal-scroll strips (recently-viewed, more-from-author) — even
+     slimmer so they don't compete with the card art. */
+  .trueread-scroll-x {
+    scrollbar-width: thin;
+  }
+  .trueread-scroll-x::-webkit-scrollbar {
+    height: 6px;
+  }
+  .trueread-scroll-x::-webkit-scrollbar-thumb {
+    background-color: oklch(0.85 0.02 255);
+    border: 2px solid transparent;
+  }
+}
+
+/* Print styles — produces a clean, distraction-free printable book summary.
+   Hides all chrome (header, footer, search, chips, floating buttons) and
+   keeps only the detail article + its cover/preview/breakdown. Triggered via
+   window.print() from the Print button on the detail view. */
+@media print {
+  /* Hide every element explicitly marked .trueread-no-print */
+  .trueread-no-print,
+  /* Page-level chrome */
+  header[role="banner"],
+  footer,
+  /* Floating UI */
+  .fixed,
+  /* Back button + search row above the article */
+  main > div > div:first-child,
+  /* Sticky scroll-progress bar */
+  .trueread-progress-bar,
+  /* The "More from this author" section (needs network, doesn't print well) */
+  [data-trueread-more-from-author] {
+    display: none !important;
+  }
+
+  /* Use the full page — white background, no shadows/rings */
+  body {
+    background: #fff !important;
+  }
+  .trueread-shadow-soft,
+  .trueread-shadow-card,
+  .trueread-shadow-lift {
+    box-shadow: none !important;
+  }
+  [class*="ring-"] {
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+
+  /* Expand the article to use the printable width */
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  article {
+    margin: 0 !important;
+    padding: 0 !important;
+    break-inside: avoid;
+  }
+
+  /* Make text crisp and dark for print */
+  h1, h2, h3, p, span, li, dd, dt {
+    color: #0f172a !important;
+  }
+
+  /* Drop cap doesn't render reliably across browsers when printing —
+     fall back to a plain bold first letter. */
+  .trueread-dropcap::first-letter {
+    -webkit-text-fill-color: #2563eb !important;
+    color: #2563eb !important;
+    background: none !important;
+  }
+
+  /* Avoid breaking the cover image across pages */
+  img {
+    break-inside: avoid;
+  }
 }

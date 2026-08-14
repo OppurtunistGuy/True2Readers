@@ -21,9 +21,12 @@ const MAX_RESULTS = 24
 const MAX_RECENT = 6
 /** Max reading list books persisted to localStorage. */
 const MAX_READING_LIST = 30
+/** Max recently-viewed books kept in localStorage (most-recent-first). */
+const MAX_RECENTLY_VIEWED = 8
 /** localStorage keys (versioned so we can break schema later if needed). */
 const LS_KEY_RECENT = 'trueread:recent:v1'
 const LS_KEY_LIST = 'trueread:reading-list:v1'
+const LS_KEY_RECENTLY_VIEWED = 'trueread:recently-viewed:v1'
 
 type View =
   | { name: 'home' }
@@ -57,6 +60,13 @@ export default function Page() {
   // Reading list — persisted to localStorage (survives reload).
   const [readingList, setReadingList] = useLocalStorage<Book[]>(
     LS_KEY_LIST,
+    [],
+  )
+  // Recently-viewed books — persisted to localStorage. Each time the user
+  // opens a book detail, we prepend it to this list (deduped by id, capped
+  // at MAX_RECENTLY_VIEWED). The Home view shows these as a horizontal strip.
+  const [recentlyViewed, setRecentlyViewed] = useLocalStorage<Book[]>(
+    LS_KEY_RECENTLY_VIEWED,
     [],
   )
   const [readingListOpen, setReadingListOpen] = React.useState(false)
@@ -268,9 +278,31 @@ export default function Page() {
     [pushRecent],
   )
 
+  // Prepend a book to the recently-viewed list (deduped by id, capped).
+  // Called whenever the user opens a book detail — from the grid, the
+  // reading list, the "More from this author" section, or the recently-viewed
+  // strip itself.
+  const pushRecentlyViewed = React.useCallback((book: Book) => {
+    setRecentlyViewed((prev) => {
+      const without = prev.filter((b) => b.id !== book.id)
+      return [book, ...without].slice(0, MAX_RECENTLY_VIEWED)
+    })
+  }, [setRecentlyViewed])
+
   const handleSelectBook = React.useCallback((book: Book) => {
+    pushRecentlyViewed(book)
     setView({ name: 'detail', book, source: sourceRef.current })
-  }, [])
+  }, [pushRecentlyViewed])
+
+  // Clear all recently-viewed books.
+  const handleClearRecentlyViewed = React.useCallback(() => {
+    setRecentlyViewed([])
+  }, [setRecentlyViewed])
+
+  // Remove a single recently-viewed book by id.
+  const handleRemoveRecentlyViewed = React.useCallback((id: string) => {
+    setRecentlyViewed((prev) => prev.filter((b) => b.id !== id))
+  }, [setRecentlyViewed])
 
   const handleBackFromDetail = React.useCallback(() => {
     const last = lastResultsRef.current
@@ -374,6 +406,10 @@ export default function Page() {
                 onClearRecent={handleClearRecent}
                 searchInputRef={homeSearchRef}
                 readingListCount={readingList.length}
+                recentlyViewed={recentlyViewed}
+                onSelectBook={handleSelectBook}
+                onClearRecentlyViewed={handleClearRecentlyViewed}
+                onRemoveRecentlyViewed={handleRemoveRecentlyViewed}
               />
             )}
 
@@ -429,6 +465,7 @@ export default function Page() {
         onSelect={handleSelectBook}
         isOpen={readingListOpen}
         onToggle={() => setReadingListOpen((v) => !v)}
+        onToast={toast}
       />
 
       {/* Keyboard shortcuts help overlay */}

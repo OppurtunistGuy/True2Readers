@@ -28,6 +28,8 @@ import {
   X,
   ZoomIn,
   Compass,
+  Printer,
+  Timer,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -41,7 +43,11 @@ import { CoverLightbox } from './cover-lightbox'
 import { ScrollProgress } from './scroll-progress'
 import { MoreFromAuthor } from './more-from-author'
 import { getBreakdown } from './mock-ai'
-import { estimateReadingTime, getReaderFit } from './reading-insights'
+import {
+  estimateReadingTime,
+  getReaderFit,
+  getReadingSessions,
+} from './reading-insights'
 import { cn } from '@/lib/utils'
 
 export interface DetailViewProps {
@@ -149,10 +155,30 @@ export function DetailView({
     () => estimateReadingTime(book.pageCount),
     [book.pageCount],
   )
+  const readingSessions = React.useMemo(
+    () => getReadingSessions(book.pageCount),
+    [book.pageCount],
+  )
   const readerFit = React.useMemo(
     () => getReaderFit(book, breakdown),
     [book, breakdown],
   )
+
+  // Print / Save as PDF — opens the browser's native print dialog. Combined
+  // with the print CSS in globals.css this produces a clean, distraction-free
+  // printable summary of the current book (cover + title + author + meta +
+  // preview + breakdown). No new route, no server round-trip.
+  const handlePrint = React.useCallback(() => {
+    if (typeof window !== 'undefined' && typeof window.print === 'function') {
+      window.print()
+    } else {
+      onToast?.({
+        title: 'Printing not supported',
+        description: 'Your browser does not support window.print().',
+        duration: 3000,
+      })
+    }
+  }, [onToast])
 
   const handleCategoryClick = (cat: string) => {
     onSearch(cat)
@@ -223,6 +249,7 @@ export function DetailView({
   // Keyboard shortcuts (detail view only):
   //   `b` → toggle bookmark (only when not typing in an input)
   //   `r` → toggle reading mode (only when not typing in an input)
+  //   `p` → print / save as PDF (opens the browser's native print dialog)
   React.useEffect(() => {
     if (!onToggleBookmark && !readingText) return
     const handler = (e: KeyboardEvent) => {
@@ -244,10 +271,15 @@ export function DetailView({
         e.preventDefault()
         setReadingMode((v) => !v)
       }
+      // `p` opens the browser print dialog (Save as PDF)
+      if (e.key === 'p') {
+        e.preventDefault()
+        handlePrint()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [book, onToggleBookmark, readingText])
+  }, [book, onToggleBookmark, readingText, handlePrint])
 
   // Escape interceptor — when an overlay (cover lightbox or reading mode) is
   // open, Escape should close ONLY the overlay, not navigate back. We use the
@@ -434,13 +466,22 @@ export function DetailView({
             {/* Author links — clickable for search */}
             <AuthorLinks book={book} onSearch={onSearch} />
 
-            {/* Insight chips — reading time (real) + reader fit (mock). */}
+            {/* Insight chips — reading time (real) + sessions (real math) + reader fit (mock). */}
             {(readingTime || readerFit) && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {readingTime && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
                     <Clock className="size-3.5" strokeWidth={2.25} />
                     {readingTime.label}
+                  </span>
+                )}
+                {readingSessions && readingSessions.sessions > 1 && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-50/60 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100/70"
+                    title={`Based on ~${readingSessions.minutesPerSession} min per session — real page count`}
+                  >
+                    <Timer className="size-3.5" strokeWidth={2.25} />
+                    {readingSessions.label}
                   </span>
                 )}
                 {readerFit && (
@@ -470,11 +511,27 @@ export function DetailView({
                     </kbd>
                   </button>
                 )}
+                {/* Print / Save as PDF — uses the browser's native dialog.
+                    Print CSS in globals.css hides chrome (header, footer,
+                    search bar, chips) so the output is a clean book summary. */}
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="trueread-no-print inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
+                  aria-label="Print or save as PDF"
+                  title="Print / Save as PDF (P)"
+                >
+                  <Printer className="size-3.5" strokeWidth={2.25} />
+                  Print
+                  <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+                    P
+                  </kbd>
+                </button>
                 {/* Share button chip */}
                 <button
                   type="button"
                   onClick={handleShare}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
+                  className="trueread-no-print inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
                   aria-label="Share this book"
                 >
                   {copied ? (
@@ -715,9 +772,14 @@ export function DetailView({
       </motion.article>
 
       {/* More from this author — real author search, excludes current book.
-          Renders only when the search yields additional results. */}
+          Renders only when the search yields additional results.
+          The data attribute lets the print CSS hide this section (it relies on
+          a live network fetch, which doesn't belong in a printed summary). */}
       {onSelectBook && (
-        <div className="mx-auto mt-2 w-full max-w-6xl px-4 md:px-6">
+        <div
+          className="mx-auto mt-2 w-full max-w-6xl px-4 md:px-6"
+          data-trueread-more-from-author
+        >
           <MoreFromAuthor book={book} onSelect={onSelectBook} />
         </div>
       )}

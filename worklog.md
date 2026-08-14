@@ -501,3 +501,61 @@ Stage Summary:
 - Modified files: book-card.tsx, detail-view.tsx, home-view.tsx, results-view.tsx, logo.tsx, keyboard-help.tsx, page.tsx.
 - Screenshots: screenshots/round7-qa-01 through round7-final-06 (covers home, mood section, mood search results, compare mode fixed, compare modal, detail with More-from-author, share toast, keyboard help updated).
 - Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 11 (webDevReview round 6)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-5 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple Books fallback active), no errors.
+- QA round (agent-browser, desktop + mobile 390x844): home, genre→grid (29 cards), grid→card→detail, back navigation, compare mode (toggle + select 3 + modal), keyboard help overlay, reading list panel. All baseline clean — no console errors, no dev.log errors.
+- Decision: app is stable → focus on NEW features + styling polish (mandatory requirements).
+- NO BUGS found in this round — baseline is clean.
+
+- NEW FEATURES (5, all real-data, no fabrication):
+  1. **"Surprise me" discovery button** (home hero) — secondary CTA under the hero search. Picks a random query from a curated list of 20 REAL genres/topics (cozy mystery, thriller, romance, fantasy, science fiction, horror, self-help, historical fiction, memoir, biography, mystery, adventure, noir, fairytale, detective, literary fiction, magical realism, coming of age, true crime, mythology) and runs the EXISTING search pipeline. Never repeats the last pick. Rotating Shuffle icon on hover. Disabled while a search is loading. New component: src/components/trueread/surprise-me.tsx.
+  2. **Recently viewed books strip** (home, below hero) — horizontal scroll of the last 8 books the user opened in detail view. Persisted to localStorage (key: `trueread:recently-viewed:v1`). Each mini card shows cover (with hover zoom), title, first author. Per-card remove (×) button on hover. "Clear" link in the header. Animated entrance (fade + scale, staggered). Hidden entirely when empty (ambient surface, no empty state). New component: src/components/trueread/recently-viewed.tsx. Wired via page.tsx: handleSelectBook prepends to recentlyViewed (deduped by id, capped at 8).
+  3. **Reading sessions breakdown** (detail view insight chips) — new pill showing "N sessions of ~M min" derived from the real pageCount via a new `getReadingSessions()` helper (25-min Pomodoro-style sessions). Pure math, no fabrication. Only shown when sessions > 1 (single-sitting books don't need the pill). Hidden for Apple Books fallback books with no pageCount. New Timer icon. Helper added to src/components/trueread/reading-insights.ts.
+  4. **Print / Save as PDF** (detail view) — new "Print" chip button in the insight chips row. Calls window.print(). Combined with comprehensive print CSS in globals.css (@media print) that hides all chrome (header, footer, search bar, chips marked .trueread-no-print, floating buttons, scroll progress bar, More-from-author section) and renders only the book detail article (cover + title + author + meta + preview + breakdown) in a clean, printable layout. Includes a `p` keyboard shortcut (documented in the keyboard-help overlay). Graceful fallback toast if window.print is unavailable.
+  5. **"Copy all titles" export** (reading list panel) — new button in the panel header. Copies a plain-text, numbered list of every saved book (title + author + year) to the clipboard, prefixed with "My TrueRead reading list (N books):". Toast feedback on both success ("Reading list copied — N books ready to paste") and failure ("Couldn't copy automatically"). Uses the async Clipboard API with try/catch. Real data only — no fabrication.
+
+- STYLING POLISH:
+  1. **Reading-list progress bar** — new "READING GOAL" progress bar in the panel header showing X/20 books saved (soft goal, not a hard cap). Animated width fill on mount. Turns into a blue→blue-700 gradient when the goal is reached. Hidden when the list is empty.
+  2. **Better empty state for reading list** — replaced the sparse "No books saved yet" text with a richer empty state: larger gradient icon container, semibold heading ("Your reading list is empty"), descriptive subtext, and a prominent "Browse books" CTA button (Sparkles icon) that closes the panel so the user can go discover books.
+  3. **Cover hover zoom on book cards** — the grid-variant cover now scales 1.03x on hover (smooth 300ms ease-out), layered under the existing gradient overlay + "View" badge. Subtle but adds life to the grid.
+  4. **Custom horizontal scrollbar** — new `.trueread-scroll-x` utility class with a slimmer 6px thumb (vs the default 10px) for horizontal scroll strips (recently-viewed, more-from-author). Doesn't compete with the card art.
+  5. **Print stylesheet** — full @media print block: hides chrome, strips shadows/rings, expands the article to full page width, forces dark text on white, fixes the drop cap to render reliably in print, avoids breaking images across pages.
+  6. **Keyboard help overlay** — added the new `P` shortcut (Printer icon) to the Actions group, alongside the existing B and R shortcuts.
+
+- Files created:
+  - src/components/trueread/surprise-me.tsx (SurpriseMe button, hero + inline variants, rotating Shuffle icon, no-repeat pool)
+  - src/components/trueread/recently-viewed.tsx (RecentlyViewed horizontal strip, animated entrance, per-card remove, clear-all)
+- Files modified:
+  - src/components/trueread/reading-insights.ts (added getReadingSessions + ReadingSessions interface)
+  - src/components/trueread/home-view.tsx (added SurpriseMe below hero, RecentlyViewed strip section, new props)
+  - src/components/trueread/detail-view.tsx (reading sessions pill, Print button + handlePrint, p keyboard shortcut, Printer/Timer imports, data-trueread-more-from-author attr for print CSS, trueread-no-print classes on Print/Share chips)
+  - src/components/trueread/reading-list.tsx (progress bar, Copy all button + handleCopyAll, better empty state with CTA, onToast prop, READING_LIST_GOAL const, Sparkles/Copy imports)
+  - src/components/trueread/book-card.tsx (cover hover zoom wrapper)
+  - src/components/trueread/keyboard-help.tsx (added P shortcut to Actions group, Printer import)
+  - src/app/page.tsx (recentlyViewed localStorage state, pushRecentlyViewed, handleClearRecentlyViewed, handleRemoveRecentlyViewed, wired to HomeView; onToast plumbed to ReadingList; LS_KEY_RECENTLY_VIEWED + MAX_RECENTLY_VIEWED consts)
+  - src/app/globals.css (.trueread-scroll-x utility, full @media print block)
+- Verification (agent-browser, all passed):
+  - Home: "Surprise me" button renders below hero ✓
+  - Click "Surprise me" → real search runs (landed on thriller, 29 results from Apple Books) ✓
+  - Open book detail → go home → "RECENTLY VIEWED" strip appears with the book ✓; "Clear recently viewed" link present ✓
+  - Detail: "Print" chip present with P kbd hint ✓; reading sessions pill correctly hidden for Apple Books books with no pageCount (no fabrication) ✓
+  - Reading list panel: "1 book saved", "Copy all" button, "Clear" button, "READING GOAL" progress bar all present ✓
+  - Click "Copy all" → "Reading list copied" toast appears ✓
+  - Keyboard help: "Print or save as PDF (detail view)" listed in Actions group with P kbd ✓
+  - Mobile (iPhone 14, 390x844): Surprise me button + Recently viewed strip + all features present and responsive ✓
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none (only the expected Google Books 429 → Apple Books fallback messages)
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 0 bug fixes (none needed — baseline was clean) + 5 new features + 6 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: surprise-me.tsx, recently-viewed.tsx.
+- Modified files: reading-insights.ts, home-view.tsx, detail-view.tsx, reading-list.tsx, book-card.tsx, keyboard-help.tsx, page.tsx, globals.css.
+- Screenshots: screenshots/round8-home-with-surprise.png, round8-surprise-result.png, round8-detail-with-sessions.png, round8-home-with-recently-viewed.png, round8-reading-list-panel.png, round8-copy-all-toast.png, round8-kbd-help-with-p.png, round8-mobile-home-full.png.
+- Continuous review loop still armed (cron 323008, every 15 min).

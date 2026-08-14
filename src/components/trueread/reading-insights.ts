@@ -108,3 +108,40 @@ export function formatPublished(year: string | null | undefined): string | null 
   if (!year) return null
   return year
 }
+
+/**
+ * Reading-session breakdown — splits a total reading time into realistic
+ * sit-down sessions (defaults to ~25 min sessions, the classic Pomodoro).
+ *
+ * Pure math from the real pageCount via estimateReadingTime — no fabrication.
+ *
+ * Examples:
+ *   45 min  → "1 sitting of 45 min"
+ *   120 min → "2 sessions of ~30 min"
+ *   320 min → "5 sessions of ~25 min"
+ */
+export interface ReadingSessions {
+  /** Number of suggested sessions (always ≥ 1 when total > 0). */
+  sessions: number
+  /** Approximate minutes per session (rounded). */
+  minutesPerSession: number
+  /** Human label, e.g. "5 sessions of ~25 min". */
+  label: string
+}
+
+export function getReadingSessions(
+  pageCount: number | null | undefined,
+  targetSessionMinutes = 25,
+): ReadingSessions | null {
+  const rt = estimateReadingTime(pageCount)
+  if (!rt || rt.minutes <= 0) return null
+  const sessions = Math.max(1, Math.round(rt.minutes / targetSessionMinutes))
+  const minutesPerSession = Math.round(rt.minutes / sessions)
+  // Singular vs plural grammar
+  const sessionWord = sessions === 1 ? 'sitting' : 'sessions'
+  const label =
+    sessions === 1
+      ? `1 sitting of ~${minutesPerSession} min`
+      : `${sessions} ${sessionWord} of ~${minutesPerSession} min`
+  return { sessions, minutesPerSession, label }
+}

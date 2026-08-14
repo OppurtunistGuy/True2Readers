@@ -183,7 +183,9 @@ export function BookCard({
           'relative overflow-hidden rounded-xl transition-all duration-300 group-hover:shadow-xl group-focus-visible:shadow-xl ring-1 group-hover:ring-blue-200/60',
           isCompareSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'ring-slate-200/50',
         )}>
-          <CoverImage book={book} className="w-full" />
+          <div className="transition-transform duration-300 ease-out group-hover:scale-[1.03]">
+            <CoverImage book={book} className="w-full" />
+          </div>
           {/* Hover overlay with quick-peek text */}
           {shortDesc && !compareMode && (
             <div className="absolute inset-0 flex items-end bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent p-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
