@@ -333,3 +333,49 @@ Stage Summary:
 - 16 improvements (8 new features + 8 UI/styling polish) added within the single-page loop.
 - Screenshots: screenshots/round4-final-home.png, round4-final-results.png, round4-final-detail.png.
 - Continuous review loop armed (cron 323008, every 15 min).
+
+---
+Task ID: 8 (webDevReview round 3)
+Agent: coordinator (cron webDevReview)
+Task: QA pass + fix bugs + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-2 complete and stable). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser): home, genre to grid, genre to card to detail, back navigation, author link search, autocomplete, bookmark toast, scroll-to-top, keyboard help overlay, compare modal, reading mode. No console errors.
+- BUG FIX:
+  1. Author search display: clicking an author link sent `author:M. Lynn` which displayed as the raw heading "author:M. Lynn". Created query-format.ts with formatQueryForDisplay() that converts `author:X` to "Books by X" for display. ResultsView now shows a friendly heading with a User icon when the query is an author search. Verified: "Books by James Clear" displays correctly.
+- NEW features (all real-data, no fabrication):
+  1. Book comparison mode: a "Compare" toggle button in the results header activates a selection mode. Each book card shows a compare-select badge (top-right). Users can select up to 3 books. A sticky banner shows selection count and a "Compare N books" button. Clicking opens a full-screen modal with side-by-side comparison of: Rating, Pages, Reading Time, Published year, and all 4 AI breakdown metrics (Pacing, Tone, Dialogue, Complexity). Each metric row highlights the "winner" with a blue badge + checkmark. The modal lets users click any book title to jump to its detail page. Compare mode disables bookmark buttons to avoid accidental clicks.
+  2. Reading mode toggle: a "Reading mode" button (with Maximize2 icon) in the detail view insight chips opens a full-screen overlay with the book's preview/description in a distraction-free, larger-text layout. Shows the book title + author in a header, a reading time chip, the text with a drop cap, and a footer with source attribution + Esc hint. Body scroll is locked while open. Closes on Esc, backdrop click, or the minimize button.
+  3. Keyboard shortcut help overlay: press `?` (or Shift+/) to open a centered dialog listing all keyboard shortcuts grouped by Navigation and Actions. Each shortcut shows an icon, description, and kbd-styled key caps. A `?` button is also in the header for mouse users. Body scroll locked while open. Closes on Esc or backdrop click.
+  4. Quick rating filter: on the results page, when any book has a rating > 0, rating filter chips appear (Any rating / 4+ stars / 3+ stars) alongside the decade filter. Books without ratings are filtered out when a rating filter is active. Combined with the decade filter for "No books from the Xs with Y+ stars" empty state with a "Clear filters" button.
+  5. Enhanced stats summary card: in the detail view, below the star rating, a "QUICK FACTS" card shows key metrics (Published, Publisher, Pages, Read time) in a compact definition-list layout with blue-tinted icon containers. Replaces the inline meta row for a cleaner visual hierarchy.
+  6. Collapsible category chips: in the detail view, if a book has more than 3 categories, only the first 3 are shown with a "+N more" expand button. Clicking expands to show all categories with a "Show less" collapse button.
+  7. User icon next to author search heading: when the results are from an author search, a User icon appears next to the "Books by X" heading for visual context.
+  8. Compare mode banner with animated entrance: AnimatePresence height animation when toggling compare mode on/off.
+- Files created:
+  - src/components/trueread/query-format.ts (formatQueryForDisplay, isAuthorSearch, extractAuthorName)
+  - src/components/trueread/keyboard-help.tsx (KeyboardHelp overlay dialog)
+  - src/components/trueread/compare-modal.tsx (CompareModal with MetricRow/MetricCell)
+- Files modified:
+  - src/app/page.tsx (keyboardHelpOpen state, ? shortcut handler, KeyboardHelp component, ? button in header)
+  - src/components/trueread/results-view.tsx (compareMode, compareSelected, minRating state; CompareModal; formatQueryForDisplay; rating filter chips; compare banner; User icon for author searches; passes compareMode/isCompareSelected/onToggleCompare to BookCard)
+  - src/components/trueread/detail-view.tsx (readingMode state; ReadingMode overlay; stats summary card; collapsible categories; removed inline meta row in favor of stats card)
+  - src/components/trueread/book-card.tsx (compareMode, isCompareSelected, onToggleCompare props; compare-select badge on cover; "Selected" overlay; ring highlight when selected; bookmark hidden in compare mode)
+- Verification (agent-browser, all passed):
+  - Keyboard help: ? button in header opens dialog; ? shortcut opens dialog; Esc closes dialog
+  - Author search: "Books by James Clear" heading with User icon
+  - Compare mode: toggle activates; select 3 books; "Compare 3 books" button enabled; modal opens with Rating/Pages/Reading Time/Published/Breakdown rows
+  - Reading mode: button in detail chips; opens full-screen overlay with title, author, reading time chip, text with drop cap, source attribution
+  - Collapsible categories: "+2 more" button expands/collapses
+  - Quick facts card: shows Published, Publisher, Pages, Read time
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 1 bug fix + 8 new features/polish added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: query-format.ts, keyboard-help.tsx, compare-modal.tsx.
+- Modified files: page.tsx, results-view.tsx, detail-view.tsx, book-card.tsx.
+- Screenshots: screenshots/round5-keyboard-help.png, round5-compare-modal.png, round5-reading-mode.png, round5-results-sf.png, round5-baseline-home.png, round5-baseline-results.png, round5-baseline-detail.png.
+- Continuous review loop armed (cron 323008, every 15 min).

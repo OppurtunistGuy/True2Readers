@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { Eye } from 'lucide-react'
+import { Check, Eye, GitCompare } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
 import { CoverImage } from './cover-image'
 import { StarRating } from './star-rating'
@@ -21,6 +21,12 @@ export interface BookCardProps {
   onToggleBookmark?: (book: Book) => void
   /** Display variant: grid card or list row. */
   variant?: 'grid' | 'list'
+  /** Whether compare mode is active (shows a select checkbox on the card). */
+  compareMode?: boolean
+  /** Whether this book is currently selected for comparison. */
+  isCompareSelected?: boolean
+  /** Toggle comparison selection. */
+  onToggleCompare?: (book: Book) => void
 }
 
 /**
@@ -38,6 +44,9 @@ export function BookCard({
   isBookmarked = false,
   onToggleBookmark,
   variant = 'grid',
+  compareMode = false,
+  isCompareSelected = false,
+  onToggleCompare,
 }: BookCardProps) {
   const authorsText =
     book.authors.length > 0 ? book.authors.join(', ') : 'Unknown author'
@@ -47,6 +56,13 @@ export function BookCard({
     book.description && book.description.length > 20
       ? book.description.slice(0, 120).replace(/\s+\S*$/, '') + '…'
       : null
+
+  // Handle the compare-select click — stops propagation so the card itself
+  // doesn't navigate to detail.
+  const handleCompareClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggleCompare?.(book)
+  }
 
   if (variant === 'list') {
     return (
@@ -65,6 +81,7 @@ export function BookCard({
         whileTap={{ scale: 0.995 }}
         className={cn(
           'group flex w-full items-center gap-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 rounded-xl p-3 transition-colors hover:bg-white',
+          isCompareSelected && 'bg-blue-50/60 ring-1 ring-blue-200',
           className,
         )}
       >
@@ -85,9 +102,32 @@ export function BookCard({
             <StarRating rating={book.rating} size="sm" showValue={false} />
           </div>
         </div>
-        <div className="shrink-0 self-center">
-          <Eye className="size-4 text-slate-300 transition-colors group-hover:text-blue-500" />
-        </div>
+        {/* Compare select button (if compare mode is on) */}
+        {compareMode && onToggleCompare && (
+          <button
+            type="button"
+            onClick={handleCompareClick}
+            className={cn(
+              'shrink-0 self-center inline-flex size-8 items-center justify-center rounded-full transition-all active:scale-90',
+              isCompareSelected
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600',
+            )}
+            aria-label={isCompareSelected ? 'Remove from comparison' : 'Add to comparison'}
+            aria-pressed={isCompareSelected}
+          >
+            {isCompareSelected ? (
+              <Check className="size-4" strokeWidth={2.5} />
+            ) : (
+              <GitCompare className="size-4" strokeWidth={2} />
+            )}
+          </button>
+        )}
+        {!compareMode && (
+          <div className="shrink-0 self-center">
+            <Eye className="size-4 text-slate-300 transition-colors group-hover:text-blue-500" />
+          </div>
+        )}
       </motion.button>
     )
   }
@@ -104,6 +144,7 @@ export function BookCard({
       }}
       className={cn(
         'group relative flex w-full flex-col text-left',
+        isCompareSelected && 'rounded-xl',
         className,
       )}
     >
@@ -113,21 +154,54 @@ export function BookCard({
         aria-label={`Open details for ${book.title} by ${authorsText}`}
         className="flex w-full flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 rounded-xl"
       >
-        <div className="relative overflow-hidden rounded-xl transition-all duration-300 group-hover:shadow-xl group-focus-visible:shadow-xl ring-1 ring-slate-200/50 group-hover:ring-blue-200/60">
+        <div className={cn(
+          'relative overflow-hidden rounded-xl transition-all duration-300 group-hover:shadow-xl group-focus-visible:shadow-xl ring-1 group-hover:ring-blue-200/60',
+          isCompareSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'ring-slate-200/50',
+        )}>
           <CoverImage book={book} className="w-full" />
           {/* Hover overlay with quick-peek text */}
-          {shortDesc && (
+          {shortDesc && !compareMode && (
             <div className="absolute inset-0 flex items-end bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent p-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
               <p className="line-clamp-3 text-xs leading-relaxed text-slate-100">
                 {shortDesc}
               </p>
             </div>
           )}
-          {/* Hover "View" badge */}
-          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:opacity-100">
-            <Eye className="size-3" strokeWidth={2.25} />
-            View
-          </div>
+          {/* Hover "View" badge — hidden in compare mode */}
+          {!compareMode && (
+            <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:opacity-100">
+              <Eye className="size-3" strokeWidth={2.25} />
+              View
+            </div>
+          )}
+          {/* Compare select badge — only in compare mode */}
+          {compareMode && onToggleCompare && (
+            <button
+              type="button"
+              onClick={handleCompareClick}
+              className={cn(
+                'absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full shadow-md backdrop-blur-sm transition-all active:scale-90',
+                isCompareSelected
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white/90 text-slate-500 hover:bg-blue-50 hover:text-blue-600',
+              )}
+              aria-label={isCompareSelected ? 'Remove from comparison' : 'Add to comparison'}
+              aria-pressed={isCompareSelected}
+            >
+              {isCompareSelected ? (
+                <Check className="size-4" strokeWidth={2.5} />
+              ) : (
+                <GitCompare className="size-4" strokeWidth={2} />
+              )}
+            </button>
+          )}
+          {/* Selected checkmark overlay (top-left in compare mode) */}
+          {compareMode && isCompareSelected && (
+            <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+              <Check className="size-2.5" strokeWidth={3} />
+              Selected
+            </div>
+          )}
         </div>
         <div className="flex min-w-0 flex-col gap-0.5">
           <h3
@@ -148,8 +222,8 @@ export function BookCard({
         </div>
       </button>
 
-      {/* Bookmark button — top-right corner of the card */}
-      {onToggleBookmark && (
+      {/* Bookmark button — top-right corner of the card (hidden in compare mode) */}
+      {!compareMode && onToggleBookmark && (
         <div className="absolute right-2 top-2 z-10">
           <BookmarkButton
             isBookmarked={isBookmarked}

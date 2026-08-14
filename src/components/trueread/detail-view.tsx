@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
   Bookmark,
@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Gauge,
   Info,
-  Link2,
   Quote,
   Share2,
   Sparkles,
@@ -20,6 +19,13 @@ import {
   ChevronDown,
   ChevronUp,
   Globe,
+  BookMarked,
+  Calendar,
+  FileText,
+  Star,
+  Maximize2,
+  Minimize2,
+  X,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -49,9 +55,6 @@ export interface DetailViewProps {
 /**
  * Render a Google Books preview snippet that may contain <em>...</em>
  * highlight tags — without dangerouslySetInnerHTML.
- *
- * Splits on `<em>` / `</em>` and wraps the highlighted spans in a
- * safe <mark> element.
  */
 function renderSnippet(snippet: string): React.ReactNode {
   const parts = snippet.split(/(<\/?em>)/)
@@ -85,9 +88,15 @@ const VIBE_ICON: Record<string, React.ReactNode> = {
   epic: <Bookmark className="size-3.5" strokeWidth={2.25} />,
 }
 
+/** Collapsible categories — show first 3, with a "+N more" expand button. */
+const INITIAL_CATEGORY_COUNT = 3
+
 /**
  * Book detail view. Large white card with a responsive 3-column layout:
  * cover | meta+preview | AI breakdown. Collapses to stacked on mobile.
+ *
+ * Includes a "Reading mode" toggle that expands the description to a
+ * distraction-free, larger-text reading view.
  */
 export function DetailView({
   book,
@@ -100,7 +109,9 @@ export function DetailView({
 }: DetailViewProps) {
   const [searchValue, setSearchValue] = React.useState('')
   const [showFullDesc, setShowFullDesc] = React.useState(false)
+  const [showAllCategories, setShowAllCategories] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
+  const [readingMode, setReadingMode] = React.useState(false)
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
 
@@ -115,6 +126,9 @@ export function DetailView({
   // Show the "About this book" block only when there's a real description
   // AND it adds something beyond the preview snippet (avoid duplication).
   const showAboutBlock = hasDescription && !hasPreview
+
+  // The text used in reading mode — prefer preview, fall back to description.
+  const readingText = book.previewSnippet ?? book.description ?? null
 
   // Reading insights — derived from real pageCount + the deterministic mock
   // breakdown. Both are memoized so they're stable across renders.
@@ -149,6 +163,61 @@ export function DetailView({
     if (!book.categories || book.categories.length === 0) return []
     return [...new Set(book.categories)].slice(0, 4)
   }, [book.categories])
+
+  // Visible categories (collapsible)
+  const visibleCategories = React.useMemo(() => {
+    if (!book.categories || book.categories.length === 0) return []
+    return showAllCategories
+      ? book.categories
+      : book.categories.slice(0, INITIAL_CATEGORY_COUNT)
+  }, [book.categories, showAllCategories])
+
+  const hiddenCategoryCount = (book.categories?.length ?? 0) - INITIAL_CATEGORY_COUNT
+
+  // Lock body scroll when reading mode is active
+  React.useEffect(() => {
+    if (readingMode) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = prev
+      }
+    }
+  }, [readingMode])
+
+  // Build stats for the summary card
+  const stats = React.useMemo(() => {
+    const items: { icon: React.ReactNode; label: string; value: string }[] = []
+    if (book.year) {
+      items.push({
+        icon: <Calendar className="size-3.5" strokeWidth={2.25} />,
+        label: 'Published',
+        value: book.year,
+      })
+    }
+    if (book.publisher) {
+      items.push({
+        icon: <BookMarked className="size-3.5" strokeWidth={2.25} />,
+        label: 'Publisher',
+        value: book.publisher,
+      })
+    }
+    if (book.pageCount != null && book.pageCount > 0) {
+      items.push({
+        icon: <FileText className="size-3.5" strokeWidth={2.25} />,
+        label: 'Pages',
+        value: String(book.pageCount),
+      })
+    }
+    if (readingTime) {
+      items.push({
+        icon: <Clock className="size-3.5" strokeWidth={2.25} />,
+        label: 'Read time',
+        value: readingTime.label.replace('≈ ', ''),
+      })
+    }
+    return items
+  }, [book, readingTime])
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
@@ -224,6 +293,28 @@ export function DetailView({
                 label={source === 'apple' ? 'Apple' : 'Google'}
               />
             </div>
+
+            {/* Stats summary card — below the rating */}
+            {stats.length > 0 && (
+              <div className="mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
+                <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Quick Facts
+                </h3>
+                <dl className="flex flex-col gap-2">
+                  {stats.map((stat, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-white text-blue-500 shadow-sm">
+                        {stat.icon}
+                      </span>
+                      <dt className="text-[11px] text-slate-500">{stat.label}</dt>
+                      <dd className="ml-auto truncate text-xs font-medium text-slate-700" title={stat.value}>
+                        {stat.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
           </div>
 
           {/* Middle: meta + preview */}
@@ -234,29 +325,6 @@ export function DetailView({
 
             {/* Author links — clickable for search */}
             <AuthorLinks book={book} onSearch={onSearch} />
-
-            {/* Meta row */}
-            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-              {book.year && (
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="size-3" strokeWidth={2} />
-                  {book.year}
-                </span>
-              )}
-              {book.year && book.publisher && (
-                <span aria-hidden="true">•</span>
-              )}
-              {book.publisher && <span>{book.publisher}</span>}
-              {(book.year || book.publisher) && book.pageCount != null && (
-                <span aria-hidden="true">•</span>
-              )}
-              {book.pageCount != null && book.pageCount > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <BookOpen className="size-3" strokeWidth={2} />
-                  {book.pageCount} pages
-                </span>
-              )}
-            </div>
 
             {/* Insight chips — reading time (real) + reader fit (mock). */}
             {(readingTime || readerFit) && (
@@ -278,6 +346,18 @@ export function DetailView({
                       mock
                     </span>
                   </span>
+                )}
+                {/* Reading mode toggle — only if there's text to read */}
+                {readingText && (
+                  <button
+                    type="button"
+                    onClick={() => setReadingMode(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 active:scale-95"
+                    aria-label="Enter reading mode"
+                  >
+                    <Maximize2 className="size-3.5" strokeWidth={2.25} />
+                    Reading mode
+                  </button>
                 )}
                 {/* Share button chip */}
                 <button
@@ -301,10 +381,10 @@ export function DetailView({
               </div>
             )}
 
-            {/* Category badges — clickable to trigger a genre search */}
+            {/* Category badges — clickable to trigger a genre search (collapsible) */}
             {book.categories && book.categories.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {book.categories.slice(0, 6).map((cat) => (
+                {visibleCategories.map((cat) => (
                   <button
                     key={cat}
                     type="button"
@@ -315,6 +395,26 @@ export function DetailView({
                     {cat}
                   </button>
                 ))}
+                {hiddenCategoryCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllCategories((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-all hover:bg-blue-100 active:scale-95"
+                    aria-expanded={showAllCategories}
+                  >
+                    {showAllCategories ? (
+                      <>
+                        <ChevronUp className="size-3" strokeWidth={2.5} />
+                        Show less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="size-3" strokeWidth={2.5} />
+                        +{hiddenCategoryCount} more
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
@@ -458,6 +558,94 @@ export function DetailView({
           </aside>
         </div>
       </motion.article>
+
+      {/* Reading mode overlay */}
+      <AnimatePresence>
+        {readingMode && readingText && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-md"
+              onClick={() => setReadingMode(false)}
+              aria-hidden="true"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-x-4 top-4 z-[61] mx-auto max-h-[calc(100vh-2rem)] max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reading-mode-title"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                    <BookOpen className="size-5" strokeWidth={2.25} />
+                  </span>
+                  <div className="min-w-0">
+                    <h2
+                      id="reading-mode-title"
+                      className="truncate text-base font-semibold text-slate-900"
+                      title={book.title}
+                    >
+                      {book.title}
+                    </h2>
+                    <p className="truncate text-xs text-slate-500">
+                      by {authorsText}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReadingMode(false)}
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Exit reading mode"
+                >
+                  <Minimize2 className="size-4" strokeWidth={2} />
+                </button>
+              </div>
+
+              {/* Body — scrollable reading content */}
+              <div className="max-h-[calc(100vh-8rem)] overflow-y-auto px-6 py-8 sm:px-10 sm:py-10">
+                <div className="mx-auto max-w-2xl">
+                  {/* Reading time chip */}
+                  {readingTime && (
+                    <div className="mb-6 flex items-center justify-center">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+                        <Clock className="size-3.5" strokeWidth={2.25} />
+                        {readingTime.label} read
+                      </span>
+                    </div>
+                  )}
+                  <p className="trueread-dropcap text-lg leading-relaxed text-slate-700 sm:text-xl sm:leading-relaxed">
+                    {hasPreview ? renderSnippet(book.previewSnippet!) : book.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3">
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+                  <Globe className="size-3" strokeWidth={2} />
+                  Source: {sourceLabel}
+                  <span aria-hidden="true">·</span>
+                  Press{' '}
+                  <kbd className="rounded border border-slate-200 bg-white px-1 py-0.5 text-[9px] font-semibold text-slate-500">
+                    Esc
+                  </kbd>{' '}
+                  to exit
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

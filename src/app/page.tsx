@@ -11,6 +11,7 @@ import { Footer } from '@/components/trueread/footer'
 import { ReadingList } from '@/components/trueread/reading-list'
 import { SearchProgress } from '@/components/trueread/search-progress'
 import { ScrollToTop } from '@/components/trueread/scroll-to-top'
+import { KeyboardHelp } from '@/components/trueread/keyboard-help'
 import { useToast } from '@/hooks/use-toast'
 import type { Book, BookSource, SearchResponse } from '@/components/trueread/types'
 
@@ -49,6 +50,7 @@ export default function Page() {
   // Reading list (in-memory, session-only). Order of addition.
   const [readingList, setReadingList] = React.useState<Book[]>([])
   const [readingListOpen, setReadingListOpen] = React.useState(false)
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = React.useState(false)
   const lastResultsRef = React.useRef<LastResults | null>(null)
   // Tracks the source of the most recent search so a card click (which only
   // receives a Book) can still carry the correct source into the detail view.
@@ -73,7 +75,8 @@ export default function Page() {
 
   // Keyboard shortcuts:
   //   `/`  → focus the home search box (only when not already typing in an input)
-  //   `Esc`→ go back (detail→results/home, results→home)
+  //   `Esc`→ go back (detail→results/home, results→home) or close overlays
+  //   `?`  → toggle the keyboard help overlay
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
@@ -86,15 +89,30 @@ export default function Page() {
       // `/` focuses the home search — but only on the home view, and only
       // when the user isn't already typing somewhere.
       if (e.key === '/' && !isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (view.name === 'home') {
+        if (view.name === 'home' && !keyboardHelpOpen && !readingListOpen) {
           e.preventDefault()
           homeSearchRef.current?.focus()
         }
       }
 
-      // `Escape` navigates back (or closes reading list).
+      // `?` (Shift + /) toggles the keyboard help overlay — only when not typing.
+      if (
+        (e.key === '?' || (e.key === '/' && e.shiftKey)) &&
+        !isTyping &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        e.preventDefault()
+        setKeyboardHelpOpen((v) => !v)
+      }
+
+      // `Escape` navigates back (or closes overlays).
       if (e.key === 'Escape' && !isTyping) {
-        if (readingListOpen) {
+        if (keyboardHelpOpen) {
+          e.preventDefault()
+          setKeyboardHelpOpen(false)
+        } else if (readingListOpen) {
           e.preventDefault()
           setReadingListOpen(false)
         } else if (view.name === 'detail') {
@@ -108,7 +126,7 @@ export default function Page() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [view, readingListOpen])
+  }, [view, readingListOpen, keyboardHelpOpen])
 
   // Push a query onto the recent-searches list (deduped, most-recent-first).
   const pushRecent = React.useCallback((q: string) => {
@@ -293,7 +311,7 @@ export default function Page() {
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/70 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
           <Logo size="md" onClick={handleLogoClick} />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Reading list badge in header */}
             {readingList.length > 0 && (
               <button
@@ -308,6 +326,16 @@ export default function Page() {
                 Reading List
               </button>
             )}
+            {/* Keyboard help button */}
+            <button
+              type="button"
+              onClick={() => setKeyboardHelpOpen(true)}
+              className="inline-flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+              aria-label="Show keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+            >
+              <kbd className="text-xs font-semibold">?</kbd>
+            </button>
             <Badge
               variant="outline"
               className="hidden border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 md:inline-flex"
@@ -389,6 +417,12 @@ export default function Page() {
         onSelect={handleSelectBook}
         isOpen={readingListOpen}
         onToggle={() => setReadingListOpen((v) => !v)}
+      />
+
+      {/* Keyboard shortcuts help overlay */}
+      <KeyboardHelp
+        isOpen={keyboardHelpOpen}
+        onClose={() => setKeyboardHelpOpen(false)}
       />
     </div>
   )
