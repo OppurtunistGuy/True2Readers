@@ -39,6 +39,7 @@ import { BookmarkButton } from './reading-list'
 import { AuthorLinks } from './author-links'
 import { CoverLightbox } from './cover-lightbox'
 import { ScrollProgress } from './scroll-progress'
+import { MoreFromAuthor } from './more-from-author'
 import { getBreakdown } from './mock-ai'
 import { estimateReadingTime, getReaderFit } from './reading-insights'
 import { cn } from '@/lib/utils'
@@ -54,6 +55,10 @@ export interface DetailViewProps {
   isBookmarked?: boolean
   /** Toggle bookmark. */
   onToggleBookmark?: (book: Book) => void
+  /** Optional toast notifier (used for share feedback). */
+  onToast?: (toast: { title: string; description?: string; duration?: number }) => void
+  /** Navigate to detail for a different book (used by "More from this author"). */
+  onSelectBook?: (book: Book) => void
 }
 
 /**
@@ -110,6 +115,8 @@ export function DetailView({
   onSearch,
   isBookmarked = false,
   onToggleBookmark,
+  onToast,
+  onSelectBook,
 }: DetailViewProps) {
   const [searchValue, setSearchValue] = React.useState('')
   const [showFullDesc, setShowFullDesc] = React.useState(false)
@@ -151,17 +158,40 @@ export function DetailView({
     onSearch(cat)
   }
 
-  // Share: copy a shareable text to clipboard
+  // Share: copy a shareable text to clipboard. Provides toast feedback on
+  // success AND failure so the user is never left wondering if it worked.
+  // Uses the async Clipboard API when available (HTTPS + user gesture). On
+  // failure, surfaces the text in a toast so the user can read/copy it
+  // manually — no intrusive window.prompt() dialogs.
   const handleShare = React.useCallback(async () => {
     const text = `${book.title} by ${authorsText}${book.year ? ` (${book.year})` : ''} — Found via TrueRead`
+    let succeeded = false
     try {
-      await navigator.clipboard.writeText(text)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        succeeded = true
+      }
+    } catch {
+      succeeded = false
+    }
+    if (succeeded) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard API not available — no-op
+      onToast?.({
+        title: 'Copied to clipboard',
+        description: 'Shareable book reference is on your clipboard.',
+        duration: 2200,
+      })
+    } else {
+      // Graceful fallback: surface the text in a toast so the user can
+      // read it / manually select-and-copy from the notification.
+      onToast?.({
+        title: 'Couldn’t copy automatically',
+        description: text,
+        duration: 5000,
+      })
     }
-  }, [book.title, authorsText, book.year])
+  }, [book.title, book.year, authorsText, onToast])
 
   // Unique categories for the explore section (deduped, limited)
   const exploreCategories = React.useMemo(() => {
@@ -683,6 +713,14 @@ export function DetailView({
           </aside>
         </div>
       </motion.article>
+
+      {/* More from this author — real author search, excludes current book.
+          Renders only when the search yields additional results. */}
+      {onSelectBook && (
+        <div className="mx-auto mt-2 w-full max-w-6xl px-4 md:px-6">
+          <MoreFromAuthor book={book} onSelect={onSelectBook} />
+        </div>
+      )}
 
       {/* Cover lightbox — fullscreen zoom of the book cover */}
       <CoverLightbox

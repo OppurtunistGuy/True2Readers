@@ -12,14 +12,18 @@ import { ReadingList } from '@/components/trueread/reading-list'
 import { SearchProgress } from '@/components/trueread/search-progress'
 import { ScrollToTop } from '@/components/trueread/scroll-to-top'
 import { KeyboardHelp } from '@/components/trueread/keyboard-help'
+import { useLocalStorage } from '@/components/trueread/use-local-storage'
 import { useToast } from '@/hooks/use-toast'
 import type { Book, BookSource, SearchResponse } from '@/components/trueread/types'
 
 const MAX_RESULTS = 24
-/** Max recent searches kept in-memory (session only — no persistence). */
+/** Max recent searches persisted to localStorage. */
 const MAX_RECENT = 6
-/** Max reading list books kept in-memory. */
+/** Max reading list books persisted to localStorage. */
 const MAX_READING_LIST = 30
+/** localStorage keys (versioned so we can break schema later if needed). */
+const LS_KEY_RECENT = 'trueread:recent:v1'
+const LS_KEY_LIST = 'trueread:reading-list:v1'
 
 type View =
   | { name: 'home' }
@@ -45,10 +49,16 @@ export default function Page() {
   const [view, setView] = React.useState<View>({ name: 'home' })
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  // Recent searches (in-memory, session-only). Most-recent-first, deduped.
-  const [recentSearches, setRecentSearches] = React.useState<string[]>([])
-  // Reading list (in-memory, session-only). Order of addition.
-  const [readingList, setReadingList] = React.useState<Book[]>([])
+  // Recent searches — persisted to localStorage (survives reload).
+  const [recentSearches, setRecentSearches] = useLocalStorage<string[]>(
+    LS_KEY_RECENT,
+    [],
+  )
+  // Reading list — persisted to localStorage (survives reload).
+  const [readingList, setReadingList] = useLocalStorage<Book[]>(
+    LS_KEY_LIST,
+    [],
+  )
   const [readingListOpen, setReadingListOpen] = React.useState(false)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = React.useState(false)
   const lastResultsRef = React.useRef<LastResults | null>(null)
@@ -318,7 +328,7 @@ export default function Page() {
                 type="button"
                 onClick={() => setReadingListOpen(true)}
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
-                aria-label={`Reading list: ${readingList.length} books`}
+                aria-label={`Reading list: ${readingList.length} ${readingList.length === 1 ? 'book' : 'books'}`}
               >
                 <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
                   {readingList.length}
@@ -397,6 +407,8 @@ export default function Page() {
                 onSearch={(q) => handleSearch(q, 1)}
                 isBookmarked={bookmarkedIds.has(view.book.id)}
                 onToggleBookmark={toggleBookmark}
+                onToast={toast}
+                onSelectBook={handleSelectBook}
               />
             )}
           </motion.div>

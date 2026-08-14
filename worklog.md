@@ -446,3 +446,58 @@ Stage Summary:
 - Modified files: detail-view.tsx, home-view.tsx, reading-list.tsx, book-card.tsx, results-view.tsx, keyboard-help.tsx.
 - Screenshots: screenshots/round6-01-home.png through round6-14-scroll-progress.png (14 screenshots covering home, results, detail, lightbox, reading-list panel, keyboard help, mobile views, scroll progress).
 - Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 10 (webDevReview round 5)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + fix bugs + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-4 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser, desktop): home, genre→grid (29 cards), grid→card→detail, back navigation, share button, compare mode, reading list panel, keyboard shortcuts. All baseline clean.
+- BUG FIXES (3):
+  1. **CRITICAL: Compare-select button was nested inside the card's main `<button>` element** — invalid HTML, browsers strip the inner button so compare mode was completely broken (clicking a card in compare mode navigated to detail instead of selecting; no compare-select badge appeared on any card). Fixed by restructuring `book-card.tsx` so the compare-select button is a SIBLING of the main click button (positioned absolutely over the cover), matching the existing pattern used for the bookmark button. Both grid and list variants fixed. Verified: 29 compare-select buttons now render on the grid; selecting 3 books enables the "Compare 3 books" button; modal opens with the side-by-side comparison.
+  2. **Share button failed silently when `navigator.clipboard.writeText` rejected** (e.g. in headless / insecure context / missing permission). Now provides explicit toast feedback on BOTH success ("Copied to clipboard") and failure ("Couldn't copy automatically" + the shareable text shown in the toast so the user can read/copy it manually). Removed the intrusive `window.prompt()` fallback that was blocking the page in headless browsers. `onToast` prop plumbed through `page.tsx → DetailView`.
+  3. **Grammar: header reading-list button aria-label said "Reading list: 1 books"** (singular vs plural). Now correctly distinguishes "1 book" from "N books".
+- NEW FEATURES (4, all real-data, no fabrication):
+  1. **Mood Match on home** — 8 quick-pick mood chips (Cozy, Thrilling, Romantic, Mind-bending, Epic, Educational, Dark, Whimsical) each mapping to a real genre/topic search. Each chip is a card with an icon, label, and hint subtitle, with a subtle hover gradient wash and an icon color-flip animation (blue-50/blue-600 → solid blue-600/white on hover). Section sits between the hero and "How TrueRead works" with full responsiveness (2 cols mobile, 4 cols sm+).
+  2. **"More from this author" auto-section in detail view** — fetches up to 5 OTHER books by the same author using the existing `/api/books/search?q=author:X` endpoint (real data, excludes the current book by id, deduped). Renders as a section below the main detail article with a Library icon, "More from {author}" heading (author name in blue), book count chip, and a horizontal scroll of mini book cards (cover + title + year). Loading skeleton with 5 shimmer placeholders while fetching. Section silently hidden if the author search fails or yields no other books — never fabricated.
+  3. **localStorage persistence for reading list + recent searches** — both now survive page reload. Created `useLocalStorage<T>` hook (SSR-safe, JSON-serializing, cross-tab sync via `storage` event, all reads/writes wrapped in try/catch so blocked storage never crashes the app). Reading list key: `trueread:reading-list:v1`; recent searches key: `trueread:recent:v1`. Verified: bookmark a book → reload → book still in list and header badge still shows count.
+  4. **Keyboard arrow navigation in results grid** — ArrowUp/Down/Left/Right move focus between cards (column count detected from viewport width matching Tailwind breakpoints: 2/3/4/5 cols). Home/End jump to first/last card. Enter opens the focused card. Focus ring (blue-500 + offset) highlights the active card. Only active in grid view mode and when not typing in an input. Reset on query/filter/sort/page change. `cardRefs` array + `mainButtonRef` prop on `BookCard` for focus management. Documented in the keyboard-help overlay (Grid3X3 + ArrowRight icons).
+- STYLING POLISH:
+  - **Animated logo** — BookOpen icon now tilts -6° + scales 1.05x on hover; Sparkles accent rotates +12° + scales 1.1x + deepens to blue-600 on hover; icon container bg transitions from blue-50 → blue-100; subtle radial highlight overlay inside the container; "Read" wordmark deepens to blue-700 on hover. All via `group/logo` + Tailwind transitions (no JS).
+  - **Compare-select badge enhanced** — moved out of nested-button position (see bug fix #1), now a sibling with `size-9` (larger), `bg-white/95` with `shadow-md backdrop-blur-sm`, ring-2 + ring-blue-300 halo when selected, descriptive aria-label including book title (`"Add {title} to comparison"` / `"Remove {title} from comparison"`).
+  - **Hover "View" badge** — added `pointer-events-none` so it never intercepts card clicks even when visually overlapping.
+  - **Selected checkmark overlay** — also `pointer-events-none`.
+- Files created:
+  - src/components/trueread/use-local-storage.ts (SSR-safe localStorage hook with cross-tab sync)
+  - src/components/trueread/more-from-author.tsx (auto author-search section + skeleton)
+- Files modified:
+  - src/components/trueread/book-card.tsx (de-nested compare-select button, added isFocused + mainButtonRef props, list-variant restructure with sibling buttons, focus ring on focused card)
+  - src/components/trueread/detail-view.tsx (onToast prop + share toast feedback, onSelectBook prop, MoreFromAuthor integration, removed intrusive prompt() fallback)
+  - src/components/trueread/home-view.tsx (Mood Match section with 8 mood chips + hover animations, MOODS const)
+  - src/components/trueread/results-view.tsx (focusedIndex state, cardRefs, arrow-key keyboard effect with column-count detection, isFocused + mainButtonRef passed to BookCard, reset on filter/sort/page change)
+  - src/components/trueread/logo.tsx (group/logo hover animations: book tilt, sparkles twirl, container color shift, radial highlight overlay)
+  - src/components/trueread/keyboard-help.tsx (added arrow keys + Enter shortcuts to Actions group with Grid3X3 + ArrowRight icons)
+  - src/app/page.tsx (useLocalStorage for readingList + recentSearches, LS_KEY constants, onToast + onSelectBook plumbed to DetailView, fixed singular/plural grammar in header aria-label)
+- Verification (agent-browser, all passed):
+  - Home: Mood Match section renders with 8 chips (Cozy/Thrilling/Romantic/Mind-bending/Epic/Educational/Dark/Whimsical) ✓
+  - Click "Thrilling" mood → results grid for "thriller" (29 results from Apple Books) ✓
+  - Compare mode: toggle on → 29 compare-select badges render on cards (was 0 before fix) ✓; select 3 → "Compare 3 books" enabled; modal opens with side-by-side ✓
+  - Detail: "More from M. Lynn" / "More from James Clear" / "More from Blake Pierce" sections render with 5 mini cards each ✓; clicking a related card navigates to its detail ✓
+  - Share button: shows toast "Couldn't copy automatically" + shareable text (graceful fallback in headless context) ✓
+  - localStorage: `trueread:reading-list:v1` and `trueread:recent:v1` populated; survives reload ✓
+  - Bookmark a book → reload → header still shows "Reading list: 1 book" (correct singular grammar) ✓
+  - Arrow keys: ArrowRight ×2 + ArrowDown moves focus to "A Crown of Ruin" card (focus ring visible); Enter opens that book's detail ✓
+  - Keyboard help: Arrow keys + Enter shortcuts listed in Actions group ✓
+  - Logo hover: classes confirm `group/logo` is wired ✓
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 3 bug fixes (1 critical: compare-mode was completely broken) + 4 new features + 4 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: use-local-storage.ts, more-from-author.tsx.
+- Modified files: book-card.tsx, detail-view.tsx, home-view.tsx, results-view.tsx, logo.tsx, keyboard-help.tsx, page.tsx.
+- Screenshots: screenshots/round7-qa-01 through round7-final-06 (covers home, mood section, mood search results, compare mode fixed, compare modal, detail with More-from-author, share toast, keyboard help updated).
+- Continuous review loop still armed (cron 323008, every 15 min).

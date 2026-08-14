@@ -144,6 +144,12 @@ export function ResultsView({
   const [compareMode, setCompareMode] = React.useState(false)
   const [compareSelected, setCompareSelected] = React.useState<Book[]>([])
   const [compareOpen, setCompareOpen] = React.useState(false)
+  // Index of the keyboard-focused book card (-1 = none). Used by arrow-key
+  // navigation between result cards. Reset whenever the visible results change.
+  const [focusedIndex, setFocusedIndex] = React.useState<number>(-1)
+  // Refs to each card button — used to call .focus() on the active card so
+  // the browser's native focus ring matches our keyboard nav.
+  const cardRefs = React.useRef<Array<HTMLButtonElement | null>>([])
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
   const displayQuery = formatQueryForDisplay(query)
@@ -158,6 +164,7 @@ export function ResultsView({
     setMinRating(0)
     setCompareMode(false)
     setCompareSelected([])
+    setFocusedIndex(-1)
   }, [query])
 
   // Client-side sort of the current page's results.
@@ -198,6 +205,59 @@ export function ResultsView({
       return true
     })
   }, [sortedResults, activeDecade, minRating])
+
+  // Reset focused index whenever the visible results change (filter/sort/page).
+  React.useEffect(() => {
+    setFocusedIndex(-1)
+  }, [visibleResults, activeDecade, minRating, sort, page])
+
+  // Arrow-key navigation between cards. Detects the current grid column
+  // count from the viewport width (matches the Tailwind grid breakpoints).
+  // Only active in grid view mode and when the user isn't typing in an input.
+  React.useEffect(() => {
+    if (viewMode !== 'grid') return
+    const colsForWidth = (w: number) => {
+      if (w >= 1280) return 5 // xl
+      if (w >= 1024) return 4 // lg
+      if (w >= 640) return 3  // sm
+      return 2                // base
+    }
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isTyping =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.tagName === 'SELECT')
+      if (isTyping) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      const cols = colsForWidth(window.innerWidth)
+      const max = visibleResults.length
+      if (max === 0) return
+
+      let next = focusedIndex
+      if (e.key === 'ArrowRight') next = Math.min(max - 1, focusedIndex + 1)
+      else if (e.key === 'ArrowLeft') next = Math.max(0, focusedIndex - 1)
+      else if (e.key === 'ArrowDown') next = Math.min(max - 1, focusedIndex + cols)
+      else if (e.key === 'ArrowUp') next = Math.max(0, focusedIndex - cols)
+      else if (e.key === 'Home') next = 0
+      else if (e.key === 'End') next = max - 1
+      else return
+
+      e.preventDefault()
+      if (next !== focusedIndex) {
+        setFocusedIndex(next)
+        // Defer focus to next tick so the ref array is up to date.
+        requestAnimationFrame(() => {
+          cardRefs.current[next]?.focus()
+        })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [viewMode, focusedIndex, visibleResults.length])
 
   // Pagination math. Sources don't reliably serve deep pages — cap at 8.
   const totalPages = Math.min(8, Math.max(1, Math.ceil(totalItems / maxResults)))
@@ -564,6 +624,10 @@ export function ResultsView({
                 compareMode={compareMode}
                 isCompareSelected={compareSelectedIds.has(book.id)}
                 onToggleCompare={handleToggleCompare}
+                isFocused={focusedIndex === i}
+                mainButtonRef={(el) => {
+                  cardRefs.current[i] = el
+                }}
               />
             ))}
           </div>
@@ -586,6 +650,10 @@ export function ResultsView({
                 compareMode={compareMode}
                 isCompareSelected={compareSelectedIds.has(book.id)}
                 onToggleCompare={handleToggleCompare}
+                isFocused={focusedIndex === i}
+                mainButtonRef={(el) => {
+                  cardRefs.current[i] = el
+                }}
               />
             ))}
           </div>

@@ -16,6 +16,14 @@ import {
   Shield,
   Eye,
   Library,
+  Heart,
+  Flame,
+  Brain,
+  Sword,
+  GraduationCap,
+  Moon,
+  Wand2,
+  Coffee,
 } from 'lucide-react'
 import { SearchBar } from './search-bar'
 
@@ -89,6 +97,22 @@ const TRUST_ITEMS = [
     icon: Eye,
     text: 'Transparent source attribution on every result',
   },
+] as const
+
+/**
+ * Mood Match — quick-pick chips that map a felt mood to a real genre/topic
+ * search. All queries are real (no fabricated "mood-engine"); the mapping is
+ * a curated, opinionated shortcut to genuine genre results.
+ */
+const MOODS = [
+  { icon: Coffee, label: 'Cozy', query: 'cozy mystery', hint: 'Warm & gentle' },
+  { icon: Flame, label: 'Thrilling', query: 'thriller', hint: 'Pulse-raising' },
+  { icon: Heart, label: 'Romantic', query: 'romance', hint: 'Love stories' },
+  { icon: Brain, label: 'Mind-bending', query: 'science fiction', hint: 'Big ideas' },
+  { icon: Sword, label: 'Epic', query: 'fantasy', hint: 'Swords & quests' },
+  { icon: GraduationCap, label: 'Educational', query: 'self-help', hint: 'Grow yourself' },
+  { icon: Moon, label: 'Dark', query: 'horror', hint: 'Spine-chilling' },
+  { icon: Wand2, label: 'Whimsical', query: 'fairytale', hint: 'Wonder & magic' },
 ] as const
 
 /**
@@ -250,6 +274,67 @@ export function HomeView({
               </div>
             </motion.div>
           )}
+        </div>
+      </section>
+
+      {/* Mood Match — quick-pick mood chips mapping to real genre searches */}
+      <section
+        className="mx-auto w-full max-w-5xl px-4 py-12 md:py-16"
+        aria-labelledby="mood-heading"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="text-center"
+        >
+          <h2
+            id="mood-heading"
+            className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
+          >
+            Match your mood
+          </h2>
+          <p className="mt-2 text-center text-sm text-slate-500">
+            Pick a feeling — we&rsquo;ll search real books that fit.
+          </p>
+        </motion.div>
+
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {MOODS.map((mood, i) => (
+            <motion.button
+              key={mood.label}
+              type="button"
+              onClick={() => handleSuggestion(mood.query)}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{
+                duration: 0.32,
+                delay: i * 0.04,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.97 }}
+              className="group/mood relative flex flex-col items-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
+              aria-label={`Search ${mood.query} — ${mood.hint}`}
+            >
+              {/* Subtle gradient wash on hover — locked to navy/blue palette */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/0 via-blue-50/0 to-blue-100/40 opacity-0 transition-opacity duration-300 group-hover/mood:opacity-100"
+              />
+              <span className="relative inline-flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-all duration-300 group-hover/mood:bg-blue-600 group-hover/mood:text-white">
+                <mood.icon className="size-5" strokeWidth={2} />
+              </span>
+              <span className="relative text-sm font-semibold text-slate-900">
+                {mood.label}
+              </span>
+              <span className="relative text-[11px] text-slate-500">
+                {mood.hint}
+              </span>
+            </motion.button>
+          ))}
         </div>
       </section>
 

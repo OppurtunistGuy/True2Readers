@@ -11,6 +11,8 @@ import {
   HelpCircle,
   Keyboard,
   Maximize2,
+  ArrowRight,
+  Grid3X3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -68,6 +70,16 @@ const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
         keys: ['R'],
         description: 'Toggle reading mode (detail view)',
         icon: <Maximize2 className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['↑', '↓', '←', '→'],
+        description: 'Move between book cards (results grid)',
+        icon: <Grid3X3 className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['Enter'],
+        description: 'Open the focused book card',
+        icon: <ArrowRight className="size-4 text-blue-500" strokeWidth={2} />,
       },
     ],
   },
