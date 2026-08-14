@@ -1,17 +1,25 @@
 'use client'
 
 import * as React from 'react'
+import { motion } from 'framer-motion'
 import {
   ArrowLeft,
+  Bookmark,
+  Clock,
   ExternalLink,
+  Gauge,
   Info,
   Quote,
+  Sparkles,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
 import { CoverImage } from './cover-image'
 import { AiBreakdown } from './ai-breakdown'
 import { SearchBar } from './search-bar'
+import { getBreakdown } from './mock-ai'
+import { estimateReadingTime, getReaderFit } from './reading-insights'
+import { cn } from '@/lib/utils'
 
 export interface DetailViewProps {
   book: Book
@@ -42,10 +50,7 @@ function renderSnippet(snippet: string): React.ReactNode {
     } else if (part.length > 0) {
       if (highlight) {
         nodes.push(
-          <mark
-            key={key++}
-            className="rounded bg-blue-100 px-0.5 text-blue-900"
-          >
+          <mark key={key++} className="rounded bg-blue-100 px-0.5 text-blue-900">
             {part}
           </mark>,
         )
@@ -57,11 +62,24 @@ function renderSnippet(snippet: string): React.ReactNode {
   return nodes
 }
 
+const VIBE_ICON: Record<string, React.ReactNode> = {
+  light: <Sparkles className="size-3.5" strokeWidth={2.25} />,
+  steady: <Gauge className="size-3.5" strokeWidth={2.25} />,
+  deep: <Bookmark className="size-3.5" strokeWidth={2.25} />,
+  epic: <Bookmark className="size-3.5" strokeWidth={2.25} />,
+}
+
 /**
  * Book detail view. Large white card with a responsive 3-column layout:
  * cover | meta+preview | AI breakdown. Collapses to stacked on mobile.
  */
-export function DetailView({ book, source = 'google', backLabel = 'Back to results', onBack, onSearch }: DetailViewProps) {
+export function DetailView({
+  book,
+  source = 'google',
+  backLabel = 'Back to results',
+  onBack,
+  onSearch,
+}: DetailViewProps) {
   const [searchValue, setSearchValue] = React.useState('')
   const [showFullDesc, setShowFullDesc] = React.useState(false)
 
@@ -78,6 +96,22 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
   // Show the "About this book" block only when there's a real description
   // AND it adds something beyond the preview snippet (avoid duplication).
   const showAboutBlock = hasDescription && !hasPreview
+
+  // Reading insights — derived from real pageCount + the deterministic mock
+  // breakdown. Both are memoized so they're stable across renders.
+  const breakdown = React.useMemo(() => getBreakdown(book), [book])
+  const readingTime = React.useMemo(
+    () => estimateReadingTime(book.pageCount),
+    [book.pageCount],
+  )
+  const readerFit = React.useMemo(
+    () => getReaderFit(book, breakdown),
+    [book, breakdown],
+  )
+
+  const handleCategoryClick = (cat: string) => {
+    onSearch(cat)
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
@@ -104,12 +138,19 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
       </div>
 
       {/* Main detail card */}
-      <article className="mt-8 rounded-2xl bg-white p-6 trueread-shadow-soft ring-1 ring-slate-200/70 md:p-10">
+      <motion.article
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-8 rounded-2xl bg-white p-6 trueread-shadow-soft ring-1 ring-slate-200/70 md:p-10"
+      >
         {source === 'apple' && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600">
             <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
             <p>
-              <span className="font-medium text-slate-800">Google Books is temporarily unavailable</span>{' '}
+              <span className="font-medium text-slate-800">
+                Google Books is temporarily unavailable
+              </span>{' '}
               from this environment. Showing real metadata from{' '}
               <span className="font-medium text-blue-700">Apple Books</span> —
               no preview text is available for this book.
@@ -144,7 +185,7 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
             </p>
 
             {/* Meta row */}
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
               {book.year && <span>{book.year}</span>}
               {book.year && book.publisher && (
                 <span aria-hidden="true">•</span>
@@ -158,16 +199,43 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
               )}
             </div>
 
-            {/* Category badges */}
+            {/* Insight chips — reading time (real) + reader fit (mock). */}
+            {(readingTime || readerFit) && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {readingTime && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+                    <Clock className="size-3.5" strokeWidth={2.25} />
+                    {readingTime.label}
+                  </span>
+                )}
+                {readerFit && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+                    title="Mock suggestion — not a real recommendation engine"
+                  >
+                    {VIBE_ICON[readerFit.vibe]}
+                    {readerFit.label}
+                    <span className="ml-0.5 rounded bg-slate-200 px-1 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                      mock
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Category badges — clickable to trigger a genre search */}
             {book.categories && book.categories.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {book.categories.slice(0, 5).map((cat) => (
-                  <span
+                {book.categories.slice(0, 6).map((cat) => (
+                  <button
                     key={cat}
-                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                    type="button"
+                    onClick={() => handleCategoryClick(cat)}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+                    aria-label={`Search more books in ${cat}`}
                   >
                     {cat}
-                  </span>
+                  </button>
                 ))}
               </div>
             )}
@@ -185,7 +253,7 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
               </h2>
 
               {hasPreview ? (
-                <p className="mt-3 text-base leading-relaxed text-slate-600">
+                <p className="trueread-dropcap mt-3 text-base leading-relaxed text-slate-600">
                   {renderSnippet(book.previewSnippet!)}
                 </p>
               ) : (
@@ -227,11 +295,10 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
                   About this book
                 </h2>
                 <p
-                  className={
-                    showFullDesc
-                      ? 'mt-3 text-sm leading-relaxed text-slate-600'
-                      : 'mt-3 line-clamp-4 text-sm leading-relaxed text-slate-600'
-                  }
+                  className={cn(
+                    'trueread-dropcap mt-3 text-sm leading-relaxed text-slate-600',
+                    !showFullDesc && 'line-clamp-4',
+                  )}
                 >
                   {book.description}
                 </p>
@@ -259,7 +326,7 @@ export function DetailView({ book, source = 'google', backLabel = 'Back to resul
             <AiBreakdown book={book} />
           </aside>
         </div>
-      </article>
+      </motion.article>
     </div>
   )
 }

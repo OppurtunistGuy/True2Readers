@@ -248,3 +248,53 @@ Work Log:
 
 Stage Summary:
 - Continuous review loop armed.
+
+---
+Task ID: 6 (webDevReview round 1)
+Agent: coordinator (cron webDevReview)
+Task: QA pass + add features & styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (Phase 1 complete & stable). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser): home ✓, genre→grid (29 cards) ✓, no console errors. Baseline confirmed stable.
+- NEW features (all real-data, no fabrication):
+  1. Keyboard shortcuts: `/` focuses the home search box; `Esc` navigates back (detail→results/home, results→home). Smart: only fires when not typing in an input, ignores modifier keys.
+  2. Recent searches (in-memory, session-only): last 6 deduped queries shown as chips on home below suggestions, with a Clear button. Recorded only on page-1 searches (no spam on pagination).
+  3. Book detail reading-time estimate: derived deterministically from real `pageCount` (≈ 250 wpm × 250 wpp → ~1 min/page). Shown as a blue chip ("≈ 5h 20m"). Hidden when pageCount is missing (Apple fallback) — never fabricated.
+  4. Book detail "reader fit" microcopy: deterministic mock combining the breakdown + pageCount (e.g. "Quick weekend read", "Savour slowly", "For dedicated readers"). Labeled with a "MOCK" badge; clearly not a real recommendation engine.
+  5. Clickable category chips on detail: clicking a category triggers a new genre search for it (strengthens the discovery loop). e.g. on "Golden Curse" → click "Fantasy" → results grid.
+  6. Results decade jump-bar: derives decade buckets (1990s/2010s/2020s…) from the current page's books and shows clickable filter chips with counts. Client-side filter on top of the fetched page (no new API). Includes "All" reset + a "No books from the Xs" empty state when a filter yields nothing.
+- Styling polish (framer-motion, already installed):
+  - AnimatePresence view transitions: fade + slight slide between home/results/detail (keyed per view + query + page + book id).
+  - Staggered BookCard entrance: each card fades/slides up with index-based delay (capped).
+  - Card hover: lift + shadow + title color shift to blue-700; whileTap scale.
+  - Hero: "Understand any book in seconds" pill badge, floating decorative BookOpen/Sparkles accents (lg only, low opacity, respects reduced-motion), numbered steps (1./2./3.).
+  - Shimmer skeletons: `.trueread-shimmer` keyframe on loading skeletons.
+  - Drop-cap: `.trueread-dropcap` on preview & description first paragraph (blue drop cap) for reading rhythm.
+  - Search focus rings: focus-within ring on the search bar; "Press /" kbd hint on hero (desktop).
+  - prefers-reduced-motion: disables shimmer + float animations.
+- Files created/modified:
+  - NEW: src/components/trueread/reading-insights.ts (estimateReadingTime + getReaderFit)
+  - MOD: src/app/globals.css (shimmer, dropcap, float keyframes + reduced-motion guard)
+  - MOD: src/components/trueread/search-bar.tsx (forwardRef + inputRef + showHint kbd badge + focus-within ring + active:scale)
+  - MOD: src/components/trueread/book-card.tsx (framer-motion entrance + hover lift + title color shift)
+  - MOD: src/components/trueread/home-view.tsx (badge, floating accents, recent searches, numbered steps, motion entrance, searchInputRef passthrough)
+  - MOD: src/components/trueread/results-view.tsx (decade jump-bar + filter empty state + shimmer skeletons + staggered cards via index prop)
+  - MOD: src/components/trueread/detail-view.tsx (reading-time chip, reader-fit chip + mock badge, clickable categories, drop-cap, motion entrance)
+  - MOD: src/app/page.tsx (keyboard shortcuts effect, recentSearches state + pushRecent/clear, AnimatePresence view transitions, searchInputRef)
+- Verification (agent-browser, all passed):
+  - `/` focuses search (BODY→INPUT) ✓
+  - genre "fantasy" → decade chips [1990s(2), 2010s(12), 2020s(15)] + All ✓; clicking 1990s → 2 cards ✓
+  - grid→card→detail: reader-fit "Savour slowly" + mock badge + 6 clickable categories + drop-cap + About block ✓
+  - clicking a category chip → new genre search ✓
+  - Escape from detail → back to grid ✓; Escape from grid → home ✓
+  - recent searches appear on home ("Recent: Fantasy | Clear") ✓
+  - mobile (iPhone 14): detail stacked, aside hidden, AI breakdown inline ✓
+  - console errors: none; dev.log errors: none.
+- `bun run lint` → PASS (0 errors, 0 warnings).
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 6 new features + comprehensive styling polish added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- Screenshots: screenshots/round3-01-home … round3-06-mobile-detail.png.
+- Continuous review loop armed (cron 323008, every 15 min).

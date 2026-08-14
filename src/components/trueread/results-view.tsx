@@ -42,9 +42,7 @@ type SortKey = 'relevance' | 'newest' | 'oldest'
 
 const SKELETON_COUNT = 12
 
-/**
- * Build a sliding window of visible page numbers, capped at `maxVisible`.
- */
+/** Build a sliding window of visible page numbers, capped at `maxVisible`. */
 function pageWindow(current: number, total: number, maxVisible = 5): number[] {
   if (total <= maxVisible) {
     return Array.from({ length: total }, (_, i) => i + 1)
@@ -63,10 +61,25 @@ function pageWindow(current: number, total: number, maxVisible = 5): number[] {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 }
 
+/** Derive sorted decade buckets from the current page's books. */
+function deriveDecades(books: Book[]): { decade: number; label: string; count: number }[] {
+  const counts = new Map<number, number>()
+  for (const b of books) {
+    if (!b.year) continue
+    const y = Number(b.year)
+    if (!Number.isFinite(y)) continue
+    const decade = Math.floor(y / 10) * 10
+    counts.set(decade, (counts.get(decade) ?? 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .map(([decade, count]) => ({ decade, label: `${decade}s`, count }))
+    .sort((a, b) => a.decade - b.decade)
+}
+
 /**
  * Results grid view. Shows a compact header (back + search), the results
- * header (query + count + sort), the responsive BookCard grid, and
- * pagination. Includes skeleton / empty / error states.
+ * header (query + count + sort), an optional decade jump-bar, the responsive
+ * BookCard grid, and pagination. Includes skeleton / empty / error states.
  */
 export function ResultsView({
   query,
@@ -84,13 +97,15 @@ export function ResultsView({
 }: ResultsViewProps) {
   const [sort, setSort] = React.useState<SortKey>('relevance')
   const [searchValue, setSearchValue] = React.useState('')
+  const [activeDecade, setActiveDecade] = React.useState<number | null>(null)
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
 
-  // Reset sort when the query changes (new search = fresh page).
+  // Reset sort + decade filter when the query changes (new search = fresh page).
   React.useEffect(() => {
     setSort('relevance')
     setSearchValue('')
+    setActiveDecade(null)
   }, [query])
 
   // Client-side sort of the current page's results.
@@ -101,7 +116,6 @@ export function ResultsView({
     copy.sort((a, b) => {
       const ya = withYear(a)
       const yb = withYear(b)
-      // missing-year always last (regardless of direction)
       if (ya === -Infinity && yb === -Infinity) return 0
       if (ya === -Infinity) return 1
       if (yb === -Infinity) return -1
@@ -110,7 +124,23 @@ export function ResultsView({
     return copy
   }, [results, sort])
 
-  // Pagination math. Google Books doesn't reliably serve deep pages — cap at 8.
+  // Decade buckets derived from the (sorted) current page.
+  const decades = React.useMemo(
+    () => deriveDecades(sortedResults),
+    [sortedResults],
+  )
+
+  // Apply the decade filter on top of the sorted list (client-side only).
+  const visibleResults = React.useMemo(() => {
+    if (activeDecade == null) return sortedResults
+    return sortedResults.filter((b) => {
+      if (!b.year) return false
+      const y = Number(b.year)
+      return Number.isFinite(y) && Math.floor(y / 10) * 10 === activeDecade
+    })
+  }, [sortedResults, activeDecade])
+
+  // Pagination math. Sources don't reliably serve deep pages — cap at 8.
   const totalPages = Math.min(8, Math.max(1, Math.ceil(totalItems / maxResults)))
   const showPagination = totalItems > maxResults
   const visiblePages = pageWindow(page, totalPages, 5)
@@ -183,18 +213,58 @@ export function ResultsView({
         </div>
       </div>
 
-      {/* Transparent source banner — shown only when the Google Books primary
-          source is unavailable and real results came from the Apple Books fallback. */}
+      {/* Transparent source banner — shown only when results came from the
+          Apple Books fallback (Google Books environmentally unavailable). */}
       {source === 'apple' && (
         <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600">
           <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
           <p>
-            <span className="font-medium text-slate-800">Google Books is temporarily unavailable</span>{' '}
+            <span className="font-medium text-slate-800">
+              Google Books is temporarily unavailable
+            </span>{' '}
             from this environment (shared-IP quota). Showing real results from{' '}
-            <span className="font-medium text-blue-700">Apple Books</span> instead —
-            covers and metadata are real; book previews will show
+            <span className="font-medium text-blue-700">Apple Books</span>{' '}
+            instead — covers and metadata are real; book previews will show
             “No preview available.”
           </p>
+        </div>
+      )}
+
+      {/* Decade jump-bar — client-side filter derived from the current page. */}
+      {decades.length > 1 && !error && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-slate-500">Year:</span>
+          <button
+            type="button"
+            onClick={() => setActiveDecade(null)}
+            className={cn(
+              'rounded-full px-2.5 py-1 text-xs font-medium transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+              activeDecade == null
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+            )}
+          >
+            All
+          </button>
+          {decades.map((d) => (
+            <button
+              key={d.decade}
+              type="button"
+              onClick={() =>
+                setActiveDecade((cur) => (cur === d.decade ? null : d.decade))
+              }
+              className={cn(
+                'rounded-full px-2.5 py-1 text-xs font-medium transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+                activeDecade === d.decade
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+              )}
+              aria-pressed={activeDecade === d.decade}
+            >
+              {d.label}
+              <span className="ml-1 opacity-60">{d.count}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -210,14 +280,14 @@ export function ResultsView({
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
               <div key={i} className="flex flex-col gap-3">
-                <Skeleton className="aspect-[2/3] w-full rounded-lg" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-3 w-3/4" />
-                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="trueread-shimmer aspect-[2/3] w-full rounded-lg" />
+                <Skeleton className="trueread-shimmer h-4 w-5/6" />
+                <Skeleton className="trueread-shimmer h-3 w-3/4" />
+                <Skeleton className="trueread-shimmer h-3 w-1/3" />
               </div>
             ))}
           </div>
-        ) : sortedResults.length === 0 ? (
+        ) : visibleResults.length === 0 ? (
           <EmptyState query={query} />
         ) : (
           <div
@@ -226,11 +296,36 @@ export function ResultsView({
               isLoading && 'opacity-60 transition-opacity',
             )}
           >
-            {sortedResults.map((book) => (
-              <BookCard key={book.id} book={book} onSelect={onSelectBook} />
+            {visibleResults.map((book, i) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                onSelect={onSelectBook}
+                index={i}
+              />
             ))}
           </div>
         )}
+
+        {/* Decade filter empty state — when the filter yields no books. */}
+        {!error &&
+          !isLoading &&
+          visibleResults.length === 0 &&
+          sortedResults.length > 0 &&
+          activeDecade != null && (
+            <div className="mt-6 flex flex-col items-center gap-2 rounded-xl bg-white px-6 py-8 text-center ring-1 ring-slate-200/70">
+              <p className="text-sm text-slate-500">
+                No books from the {activeDecade}s on this page.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveDecade(null)}
+                className="text-sm font-medium text-blue-600 hover:underline"
+              >
+                Show all years
+              </button>
+            </div>
+          )}
       </div>
 
       {/* Pagination */}
@@ -299,9 +394,7 @@ function EmptyState({ query }: { query: string }) {
       <h3 className="text-lg font-semibold text-slate-900">
         No books found for &ldquo;{query}&rdquo;
       </h3>
-      <p className="text-sm text-slate-500">
-        Try a different title or topic.
-      </p>
+      <p className="text-sm text-slate-500">Try a different title or topic.</p>
     </div>
   )
 }
