@@ -167,9 +167,10 @@ export function BookCard({
               </p>
             </div>
           )}
-          {/* Hover "View" badge — hidden in compare mode */}
+          {/* Hover "View" badge — hidden in compare mode. Bottom-left to
+              avoid colliding with the bookmark button at top-right. */}
           {!compareMode && (
-            <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:opacity-100">
+            <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1">
               <Eye className="size-3" strokeWidth={2.25} />
               View
             </div>

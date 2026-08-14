@@ -10,6 +10,7 @@ import {
   List,
   HelpCircle,
   Keyboard,
+  Maximize2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +58,16 @@ const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
         keys: ['↑', '↓'],
         description: 'Navigate autocomplete suggestions',
         icon: <List className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['B'],
+        description: 'Save / unsave current book (detail view)',
+        icon: <Bookmark className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['R'],
+        description: 'Toggle reading mode (detail view)',
+        icon: <Maximize2 className="size-4 text-blue-500" strokeWidth={2} />,
       },
     ],
   },

@@ -15,6 +15,7 @@ import {
   Globe,
   Shield,
   Eye,
+  Library,
 } from 'lucide-react'
 import { SearchBar } from './search-bar'
 
@@ -146,10 +147,18 @@ export function HomeView({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="mx-auto mb-5 inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1 text-xs font-medium text-blue-700">
-              <Sparkles className="size-3.5" strokeWidth={2.25} />
-              Understand any book in seconds
-            </span>
+            <div className="mb-5 flex items-center justify-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1 text-xs font-medium text-blue-700">
+                <Sparkles className="size-3.5" strokeWidth={2.25} />
+                Understand any book in seconds
+              </span>
+              {readingListCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
+                  <Library className="size-3.5 text-blue-500" strokeWidth={2.25} />
+                  {readingListCount} in your list
+                </span>
+              )}
+            </div>
             <h1
               id="hero-heading"
               className="text-center text-4xl font-bold leading-tight tracking-tight text-slate-900 md:text-5xl"
@@ -194,9 +203,9 @@ export function HomeView({
                   key={tag}
                   type="button"
                   onClick={() => handleSuggestion(tag)}
-                  className="group/tag rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-all hover:bg-blue-100 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
+                  className="trueread-chip-focus group/tag rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:bg-blue-100 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
                 >
-                  <span className="transition-transform group-hover/tag:translate-x-0.5 inline-block">
+                  <span className="inline-block transition-transform group-hover/tag:translate-x-0.5">
                     {tag}
                   </span>
                 </button>

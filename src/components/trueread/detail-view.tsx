@@ -26,6 +26,8 @@ import {
   Maximize2,
   Minimize2,
   X,
+  ZoomIn,
+  Compass,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -35,6 +37,8 @@ import { SearchBar } from './search-bar'
 import { StarRating } from './star-rating'
 import { BookmarkButton } from './reading-list'
 import { AuthorLinks } from './author-links'
+import { CoverLightbox } from './cover-lightbox'
+import { ScrollProgress } from './scroll-progress'
 import { getBreakdown } from './mock-ai'
 import { estimateReadingTime, getReaderFit } from './reading-insights'
 import { cn } from '@/lib/utils'
@@ -112,6 +116,7 @@ export function DetailView({
   const [showAllCategories, setShowAllCategories] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   const [readingMode, setReadingMode] = React.useState(false)
+  const [coverLightboxOpen, setCoverLightboxOpen] = React.useState(false)
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
 
@@ -185,6 +190,60 @@ export function DetailView({
     }
   }, [readingMode])
 
+  // Keyboard shortcuts (detail view only):
+  //   `b` → toggle bookmark (only when not typing in an input)
+  //   `r` → toggle reading mode (only when not typing in an input)
+  React.useEffect(() => {
+    if (!onToggleBookmark && !readingText) return
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isTyping =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      if (isTyping || e.metaKey || e.ctrlKey || e.altKey) return
+
+      // `b` toggles bookmark (only when a toggle handler is wired)
+      if (e.key === 'b' && onToggleBookmark) {
+        e.preventDefault()
+        onToggleBookmark(book)
+      }
+      // `r` toggles reading mode (only when there's text to read)
+      if (e.key === 'r' && readingText) {
+        e.preventDefault()
+        setReadingMode((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [book, onToggleBookmark, readingText])
+
+  // Escape interceptor — when an overlay (cover lightbox or reading mode) is
+  // open, Escape should close ONLY the overlay, not navigate back. We use the
+  // capture phase + stopImmediatePropagation so this runs BEFORE the page-level
+  // Escape handler (which is registered in the bubble phase).
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (coverLightboxOpen) {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+        setCoverLightboxOpen(false)
+      } else if (readingMode) {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+        setReadingMode(false)
+      }
+    }
+    window.addEventListener('keydown', handler, { capture: true })
+    return () => window.removeEventListener('keydown', handler, { capture: true })
+  }, [coverLightboxOpen, readingMode])
+
+  // The primary category — used for the "Find similar" CTA.
+  const primaryCategory =
+    book.categories && book.categories.length > 0 ? book.categories[0] : null
+
   // Build stats for the summary card
   const stats = React.useMemo(() => {
     const items: { icon: React.ReactNode; label: string; value: string }[] = []
@@ -221,6 +280,9 @@ export function DetailView({
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
+      {/* Scroll progress bar — slim indicator that fills as the user scrolls */}
+      <ScrollProgress />
+
       {/* Compact header row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
@@ -267,11 +329,25 @@ export function DetailView({
           {/* Left: cover */}
           <div className="mx-auto w-44 md:mx-0 md:w-full">
             <div className="relative">
-              <CoverImage
-                book={book}
-                sizes="(max-width: 768px) 176px, 220px"
-                className="w-full"
-              />
+              <button
+                type="button"
+                onClick={() => setCoverLightboxOpen(true)}
+                className="group/cover relative block w-full overflow-hidden rounded-xl transition-all hover:ring-2 hover:ring-blue-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                aria-label={`Zoom cover of ${book.title}`}
+              >
+                <CoverImage
+                  book={book}
+                  sizes="(max-width: 768px) 176px, 220px"
+                  className="w-full transition-transform duration-300 group-hover/cover:scale-[1.02]"
+                />
+                {/* Zoom hint overlay — appears on hover */}
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/0 transition-colors duration-200 group-hover/cover:bg-slate-900/20">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-700 opacity-0 shadow-md backdrop-blur-sm transition-opacity duration-200 group-hover/cover:opacity-100">
+                    <ZoomIn className="size-3.5" strokeWidth={2.25} />
+                    Click to zoom
+                  </span>
+                </div>
+              </button>
               {/* Bookmark button on cover */}
               {onToggleBookmark && (
                 <div className="absolute right-2 top-2">
@@ -294,8 +370,10 @@ export function DetailView({
               />
             </div>
 
-            {/* Stats summary card — below the rating */}
-            {stats.length > 0 && (
+            {/* Stats summary card — below the rating. Hidden when fewer than
+                2 facts are available (Apple Books fallback often has only
+                `year` — a single-row card looks sparse). */}
+            {stats.length >= 2 && (
               <div className="mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
                 <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   Quick Facts
@@ -357,6 +435,9 @@ export function DetailView({
                   >
                     <Maximize2 className="size-3.5" strokeWidth={2.25} />
                     Reading mode
+                    <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+                      R
+                    </kbd>
                   </button>
                 )}
                 {/* Share button chip */}
@@ -378,6 +459,31 @@ export function DetailView({
                     </>
                   )}
                 </button>
+                {/* Bookmark chip with kbd hint — mirrors the cover bookmark button */}
+                {onToggleBookmark && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleBookmark(book)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-all active:scale-95',
+                      isBookmarked
+                        ? 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100'
+                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200',
+                    )}
+                    aria-pressed={isBookmarked}
+                    aria-label={isBookmarked ? 'Remove from reading list' : 'Add to reading list'}
+                  >
+                    {isBookmarked ? (
+                      <Bookmark className="size-3.5" strokeWidth={2.25} />
+                    ) : (
+                      <Bookmark className="size-3.5" strokeWidth={2} />
+                    )}
+                    {isBookmarked ? 'Saved' : 'Save'}
+                    <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+                      B
+                    </kbd>
+                  </button>
+                )}
               </div>
             )}
 
@@ -415,6 +521,25 @@ export function DetailView({
                     )}
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Find similar books — primary CTA using the book's first category. */}
+            {primaryCategory && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => onSearch(primaryCategory)}
+                  className="group/sim inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                  aria-label={`Find similar books in ${primaryCategory}`}
+                >
+                  <Compass className="size-4 transition-transform group-hover/sim:rotate-45" strokeWidth={2.25} />
+                  Find similar books
+                  <span className="hidden text-blue-200 sm:inline">·</span>
+                  <span className="hidden text-blue-100 sm:inline">
+                    {primaryCategory}
+                  </span>
+                </button>
               </div>
             )}
 
@@ -558,6 +683,14 @@ export function DetailView({
           </aside>
         </div>
       </motion.article>
+
+      {/* Cover lightbox — fullscreen zoom of the book cover */}
+      <CoverLightbox
+        book={book}
+        isOpen={coverLightboxOpen}
+        onClose={() => setCoverLightboxOpen(false)}
+        source={source}
+      />
 
       {/* Reading mode overlay */}
       <AnimatePresence>

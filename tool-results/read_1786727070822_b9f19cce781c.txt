@@ -1,0 +1,654 @@
+     1→'use client'
+     2→
+     3→import * as React from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  ArrowLeft,
+     7→  Bookmark,
+     8→  Clock,
+     9→  ExternalLink,
+    10→  Gauge,
+    11→  Info,
+    12→  Quote,
+    13→  Share2,
+    14→  Sparkles,
+    15→  Check,
+    16→  BookOpen,
+    17→  User,
+    18→  Search,
+    19→  ChevronDown,
+    20→  ChevronUp,
+    21→  Globe,
+    22→  BookMarked,
+    23→  Calendar,
+    24→  FileText,
+    25→  Star,
+    26→  Maximize2,
+    27→  Minimize2,
+    28→  X,
+    29→} from 'lucide-react'
+    30→import type { Book, BookSource } from '@/components/trueread/types'
+    31→import { Button } from '@/components/ui/button'
+    32→import { CoverImage } from './cover-image'
+    33→import { AiBreakdown } from './ai-breakdown'
+    34→import { SearchBar } from './search-bar'
+    35→import { StarRating } from './star-rating'
+    36→import { BookmarkButton } from './reading-list'
+    37→import { AuthorLinks } from './author-links'
+    38→import { getBreakdown } from './mock-ai'
+    39→import { estimateReadingTime, getReaderFit } from './reading-insights'
+    40→import { cn } from '@/lib/utils'
+    41→
+    42→export interface DetailViewProps {
+    43→  book: Book
+    44→  source?: BookSource
+    45→  /** Label for the back button — "Back to results" (came from grid) or "Back to home" (title search). */
+    46→  backLabel?: string
+    47→  onBack?: () => void
+    48→  onSearch: (q: string) => void
+    49→  /** Whether this book is in the reading list. */
+    50→  isBookmarked?: boolean
+    51→  /** Toggle bookmark. */
+    52→  onToggleBookmark?: (book: Book) => void
+    53→}
+    54→
+    55→/**
+    56→ * Render a Google Books preview snippet that may contain <em>...</em>
+    57→ * highlight tags — without dangerouslySetInnerHTML.
+    58→ */
+    59→function renderSnippet(snippet: string): React.ReactNode {
+    60→  const parts = snippet.split(/(<\/?em>)/)
+    61→  const nodes: React.ReactNode[] = []
+    62→  let highlight = false
+    63→  let key = 0
+    64→  for (const part of parts) {
+    65→    if (part === '<em>') {
+    66→      highlight = true
+    67→    } else if (part === '</em>') {
+    68→      highlight = false
+    69→    } else if (part.length > 0) {
+    70→      if (highlight) {
+    71→        nodes.push(
+    72→          <mark key={key++} className="rounded bg-blue-100 px-0.5 text-blue-900">
+    73→            {part}
+    74→          </mark>,
+    75→        )
+    76→      } else {
+    77→        nodes.push(<React.Fragment key={key++}>{part}</React.Fragment>)
+    78→      }
+    79→    }
+    80→  }
+    81→  return nodes
+    82→}
+    83→
+    84→const VIBE_ICON: Record<string, React.ReactNode> = {
+    85→  light: <Sparkles className="size-3.5" strokeWidth={2.25} />,
+    86→  steady: <Gauge className="size-3.5" strokeWidth={2.25} />,
+    87→  deep: <Bookmark className="size-3.5" strokeWidth={2.25} />,
+    88→  epic: <Bookmark className="size-3.5" strokeWidth={2.25} />,
+    89→}
+    90→
+    91→/** Collapsible categories — show first 3, with a "+N more" expand button. */
+    92→const INITIAL_CATEGORY_COUNT = 3
+    93→
+    94→/**
+    95→ * Book detail view. Large white card with a responsive 3-column layout:
+    96→ * cover | meta+preview | AI breakdown. Collapses to stacked on mobile.
+    97→ *
+    98→ * Includes a "Reading mode" toggle that expands the description to a
+    99→ * distraction-free, larger-text reading view.
+   100→ */
+   101→export function DetailView({
+   102→  book,
+   103→  source = 'google',
+   104→  backLabel = 'Back to results',
+   105→  onBack,
+   106→  onSearch,
+   107→  isBookmarked = false,
+   108→  onToggleBookmark,
+   109→}: DetailViewProps) {
+   110→  const [searchValue, setSearchValue] = React.useState('')
+   111→  const [showFullDesc, setShowFullDesc] = React.useState(false)
+   112→  const [showAllCategories, setShowAllCategories] = React.useState(false)
+   113→  const [copied, setCopied] = React.useState(false)
+   114→  const [readingMode, setReadingMode] = React.useState(false)
+   115→
+   116→  const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
+   117→
+   118→  const authorsText =
+   119→    book.authors.length > 0 ? book.authors.join(', ') : 'Unknown author'
+   120→
+   121→  const hasPreview =
+   122→    typeof book.previewSnippet === 'string' && book.previewSnippet.length > 0
+   123→  const hasDescription =
+   124→    typeof book.description === 'string' && book.description.length > 0
+   125→
+   126→  // Show the "About this book" block only when there's a real description
+   127→  // AND it adds something beyond the preview snippet (avoid duplication).
+   128→  const showAboutBlock = hasDescription && !hasPreview
+   129→
+   130→  // The text used in reading mode — prefer preview, fall back to description.
+   131→  const readingText = book.previewSnippet ?? book.description ?? null
+   132→
+   133→  // Reading insights — derived from real pageCount + the deterministic mock
+   134→  // breakdown. Both are memoized so they're stable across renders.
+   135→  const breakdown = React.useMemo(() => getBreakdown(book), [book])
+   136→  const readingTime = React.useMemo(
+   137→    () => estimateReadingTime(book.pageCount),
+   138→    [book.pageCount],
+   139→  )
+   140→  const readerFit = React.useMemo(
+   141→    () => getReaderFit(book, breakdown),
+   142→    [book, breakdown],
+   143→  )
+   144→
+   145→  const handleCategoryClick = (cat: string) => {
+   146→    onSearch(cat)
+   147→  }
+   148→
+   149→  // Share: copy a shareable text to clipboard
+   150→  const handleShare = React.useCallback(async () => {
+   151→    const text = `${book.title} by ${authorsText}${book.year ? ` (${book.year})` : ''} — Found via TrueRead`
+   152→    try {
+   153→      await navigator.clipboard.writeText(text)
+   154→      setCopied(true)
+   155→      setTimeout(() => setCopied(false), 2000)
+   156→    } catch {
+   157→      // Clipboard API not available — no-op
+   158→    }
+   159→  }, [book.title, authorsText, book.year])
+   160→
+   161→  // Unique categories for the explore section (deduped, limited)
+   162→  const exploreCategories = React.useMemo(() => {
+   163→    if (!book.categories || book.categories.length === 0) return []
+   164→    return [...new Set(book.categories)].slice(0, 4)
+   165→  }, [book.categories])
+   166→
+   167→  // Visible categories (collapsible)
+   168→  const visibleCategories = React.useMemo(() => {
+   169→    if (!book.categories || book.categories.length === 0) return []
+   170→    return showAllCategories
+   171→      ? book.categories
+   172→      : book.categories.slice(0, INITIAL_CATEGORY_COUNT)
+   173→  }, [book.categories, showAllCategories])
+   174→
+   175→  const hiddenCategoryCount = (book.categories?.length ?? 0) - INITIAL_CATEGORY_COUNT
+   176→
+   177→  // Lock body scroll when reading mode is active
+   178→  React.useEffect(() => {
+   179→    if (readingMode) {
+   180→      const prev = document.body.style.overflow
+   181→      document.body.style.overflow = 'hidden'
+   182→      return () => {
+   183→        document.body.style.overflow = prev
+   184→      }
+   185→    }
+   186→  }, [readingMode])
+   187→
+   188→  // Build stats for the summary card
+   189→  const stats = React.useMemo(() => {
+   190→    const items: { icon: React.ReactNode; label: string; value: string }[] = []
+   191→    if (book.year) {
+   192→      items.push({
+   193→        icon: <Calendar className="size-3.5" strokeWidth={2.25} />,
+   194→        label: 'Published',
+   195→        value: book.year,
+   196→      })
+   197→    }
+   198→    if (book.publisher) {
+   199→      items.push({
+   200→        icon: <BookMarked className="size-3.5" strokeWidth={2.25} />,
+   201→        label: 'Publisher',
+   202→        value: book.publisher,
+   203→      })
+   204→    }
+   205→    if (book.pageCount != null && book.pageCount > 0) {
+   206→      items.push({
+   207→        icon: <FileText className="size-3.5" strokeWidth={2.25} />,
+   208→        label: 'Pages',
+   209→        value: String(book.pageCount),
+   210→      })
+   211→    }
+   212→    if (readingTime) {
+   213→      items.push({
+   214→        icon: <Clock className="size-3.5" strokeWidth={2.25} />,
+   215→        label: 'Read time',
+   216→        value: readingTime.label.replace('≈ ', ''),
+   217→      })
+   218→    }
+   219→    return items
+   220→  }, [book, readingTime])
+   221→
+   222→  return (
+   223→    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
+   224→      {/* Compact header row */}
+   225→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   226→        <Button
+   227→          type="button"
+   228→          variant="ghost"
+   229→          onClick={onBack}
+   230→          className="h-10 w-fit gap-2 px-3 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+   231→        >
+   232→          <ArrowLeft className="size-4" />
+   233→          {backLabel}
+   234→        </Button>
+   235→
+   236→        <SearchBar
+   237→          value={searchValue}
+   238→          onChange={setSearchValue}
+   239→          onSubmit={onSearch}
+   240→          variant="compact"
+   241→          placeholder="Search again…"
+   242→          className="sm:w-80 md:w-96"
+   243→        />
+   244→      </div>
+   245→
+   246→      {/* Main detail card */}
+   247→      <motion.article
+   248→        initial={{ opacity: 0, y: 16 }}
+   249→        animate={{ opacity: 1, y: 0 }}
+   250→        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+   251→        className="mt-8 rounded-2xl bg-white p-6 trueread-shadow-soft ring-1 ring-slate-200/70 md:p-10"
+   252→      >
+   253→        {source === 'apple' && (
+   254→          <div className="mb-6 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600">
+   255→            <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
+   256→            <p>
+   257→              <span className="font-medium text-slate-800">
+   258→                Google Books is temporarily unavailable
+   259→              </span>{' '}
+   260→              from this environment. Showing real metadata from{' '}
+   261→              <span className="font-medium text-blue-700">Apple Books</span> —
+   262→              no preview text is available for this book.
+   263→            </p>
+   264→          </div>
+   265→        )}
+   266→        <div className="grid gap-8 md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr_300px]">
+   267→          {/* Left: cover */}
+   268→          <div className="mx-auto w-44 md:mx-0 md:w-full">
+   269→            <div className="relative">
+   270→              <CoverImage
+   271→                book={book}
+   272→                sizes="(max-width: 768px) 176px, 220px"
+   273→                className="w-full"
+   274→              />
+   275→              {/* Bookmark button on cover */}
+   276→              {onToggleBookmark && (
+   277→                <div className="absolute right-2 top-2">
+   278→                  <BookmarkButton
+   279→                    isBookmarked={isBookmarked}
+   280→                    onClick={() => onToggleBookmark(book)}
+   281→                    size="md"
+   282→                    className="shadow-md backdrop-blur-sm"
+   283→                  />
+   284→                </div>
+   285→              )}
+   286→            </div>
+   287→            {/* Star rating below cover */}
+   288→            <div className="mt-3 flex flex-col items-center gap-1">
+   289→              <StarRating
+   290→                rating={book.rating}
+   291→                size="lg"
+   292→                showValue
+   293→                label={source === 'apple' ? 'Apple' : 'Google'}
+   294→              />
+   295→            </div>
+   296→
+   297→            {/* Stats summary card — below the rating */}
+   298→            {stats.length > 0 && (
+   299→              <div className="mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
+   300→                <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+   301→                  Quick Facts
+   302→                </h3>
+   303→                <dl className="flex flex-col gap-2">
+   304→                  {stats.map((stat, i) => (
+   305→                    <div key={i} className="flex items-center gap-2">
+   306→                      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-white text-blue-500 shadow-sm">
+   307→                        {stat.icon}
+   308→                      </span>
+   309→                      <dt className="text-[11px] text-slate-500">{stat.label}</dt>
+   310→                      <dd className="ml-auto truncate text-xs font-medium text-slate-700" title={stat.value}>
+   311→                        {stat.value}
+   312→                      </dd>
+   313→                    </div>
+   314→                  ))}
+   315→                </dl>
+   316→              </div>
+   317→            )}
+   318→          </div>
+   319→
+   320→          {/* Middle: meta + preview */}
+   321→          <div className="min-w-0">
+   322→            <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 md:text-4xl">
+   323→              {book.title}
+   324→            </h1>
+   325→
+   326→            {/* Author links — clickable for search */}
+   327→            <AuthorLinks book={book} onSearch={onSearch} />
+   328→
+   329→            {/* Insight chips — reading time (real) + reader fit (mock). */}
+   330→            {(readingTime || readerFit) && (
+   331→              <div className="mt-3 flex flex-wrap gap-2">
+   332→                {readingTime && (
+   333→                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+   334→                    <Clock className="size-3.5" strokeWidth={2.25} />
+   335→                    {readingTime.label}
+   336→                  </span>
+   337→                )}
+   338→                {readerFit && (
+   339→                  <span
+   340→                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+   341→                    title="Mock suggestion — not a real recommendation engine"
+   342→                  >
+   343→                    {VIBE_ICON[readerFit.vibe]}
+   344→                    {readerFit.label}
+   345→                    <span className="ml-0.5 rounded bg-slate-200 px-1 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+   346→                      mock
+   347→                    </span>
+   348→                  </span>
+   349→                )}
+   350→                {/* Reading mode toggle — only if there's text to read */}
+   351→                {readingText && (
+   352→                  <button
+   353→                    type="button"
+   354→                    onClick={() => setReadingMode(true)}
+   355→                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 active:scale-95"
+   356→                    aria-label="Enter reading mode"
+   357→                  >
+   358→                    <Maximize2 className="size-3.5" strokeWidth={2.25} />
+   359→                    Reading mode
+   360→                  </button>
+   361→                )}
+   362→                {/* Share button chip */}
+   363→                <button
+   364→                  type="button"
+   365→                  onClick={handleShare}
+   366→                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
+   367→                  aria-label="Share this book"
+   368→                >
+   369→                  {copied ? (
+   370→                    <>
+   371→                      <Check className="size-3.5 text-green-600" strokeWidth={2.25} />
+   372→                      <span className="text-green-600">Copied!</span>
+   373→                    </>
+   374→                  ) : (
+   375→                    <>
+   376→                      <Share2 className="size-3.5" strokeWidth={2.25} />
+   377→                      Share
+   378→                    </>
+   379→                  )}
+   380→                </button>
+   381→              </div>
+   382→            )}
+   383→
+   384→            {/* Category badges — clickable to trigger a genre search (collapsible) */}
+   385→            {book.categories && book.categories.length > 0 && (
+   386→              <div className="mt-3 flex flex-wrap gap-2">
+   387→                {visibleCategories.map((cat) => (
+   388→                  <button
+   389→                    key={cat}
+   390→                    type="button"
+   391→                    onClick={() => handleCategoryClick(cat)}
+   392→                    className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+   393→                    aria-label={`Search more books in ${cat}`}
+   394→                  >
+   395→                    {cat}
+   396→                  </button>
+   397→                ))}
+   398→                {hiddenCategoryCount > 0 && (
+   399→                  <button
+   400→                    type="button"
+   401→                    onClick={() => setShowAllCategories((v) => !v)}
+   402→                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-all hover:bg-blue-100 active:scale-95"
+   403→                    aria-expanded={showAllCategories}
+   404→                  >
+   405→                    {showAllCategories ? (
+   406→                      <>
+   407→                        <ChevronUp className="size-3" strokeWidth={2.5} />
+   408→                        Show less
+   409→                      </>
+   410→                    ) : (
+   411→                      <>
+   412→                        <ChevronDown className="size-3" strokeWidth={2.5} />
+   413→                        +{hiddenCategoryCount} more
+   414→                      </>
+   415→                    )}
+   416→                  </button>
+   417→                )}
+   418→              </div>
+   419→            )}
+   420→
+   421→            <hr className="my-6 border-slate-200" />
+   422→
+   423→            {/* Preview section */}
+   424→            <section aria-labelledby="preview-heading">
+   425→              <h2
+   426→                id="preview-heading"
+   427→                className="flex items-center gap-2 text-sm font-semibold text-blue-600"
+   428→              >
+   429→                <Quote className="size-4" strokeWidth={2.25} />
+   430→                {source === 'google' ? 'Preview (from Google Books)' : 'Preview'}
+   431→              </h2>
+   432→
+   433→              {hasPreview ? (
+   434→                <p className="trueread-dropcap mt-3 text-base leading-relaxed text-slate-600">
+   435→                  {renderSnippet(book.previewSnippet!)}
+   436→                </p>
+   437→              ) : (
+   438→                <div className="mt-3 flex items-start gap-3 rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200/70">
+   439→                  <Info className="mt-0.5 size-5 shrink-0 text-slate-400" />
+   440→                  <p className="text-sm text-slate-500">
+   441→                    No preview available for this book.
+   442→                  </p>
+   443→                </div>
+   444→              )}
+   445→
+   446→              {/* Source attribution */}
+   447→              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+   448→                <span className="inline-flex items-center gap-1">
+   449→                  <Globe className="size-3" strokeWidth={2} />
+   450→                  Source: {sourceLabel}
+   451→                </span>
+   452→                {book.previewLink && (
+   453→                  <a
+   454→                    href={book.previewLink}
+   455→                    target="_blank"
+   456→                    rel="noopener noreferrer"
+   457→                    className="inline-flex items-center gap-1 text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+   458→                  >
+   459→                    Open in {sourceLabel}
+   460→                    <ExternalLink className="size-3" />
+   461→                  </a>
+   462→                )}
+   463→              </div>
+   464→            </section>
+   465→
+   466→            {/* Optional About block — only shown when there's no preview */}
+   467→            {showAboutBlock && (
+   468→              <section
+   469→                aria-labelledby="about-heading"
+   470→                className="mt-8 border-t border-slate-200 pt-6"
+   471→              >
+   472→                <h2
+   473→                  id="about-heading"
+   474→                  className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+   475→                >
+   476→                  <BookOpen className="size-4 text-blue-600" strokeWidth={2.25} />
+   477→                  About this book
+   478→                </h2>
+   479→                <p
+   480→                  className={cn(
+   481→                    'trueread-dropcap mt-3 text-sm leading-relaxed text-slate-600',
+   482→                    !showFullDesc && 'line-clamp-4',
+   483→                  )}
+   484→                >
+   485→                  {book.description}
+   486→                </p>
+   487→                <div className="mt-3 flex items-center gap-3">
+   488→                  {book.description && book.description.length > 280 && (
+   489→                    <button
+   490→                      type="button"
+   491→                      onClick={() => setShowFullDesc((v) => !v)}
+   492→                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+   493→                    >
+   494→                      {showFullDesc ? (
+   495→                        <>
+   496→                          <ChevronUp className="size-3" strokeWidth={2.5} />
+   497→                          Show less
+   498→                        </>
+   499→                      ) : (
+   500→                        <>
+   501→                          <ChevronDown className="size-3" strokeWidth={2.5} />
+   502→                          Show more
+   503→                        </>
+   504→                      )}
+   505→                    </button>
+   506→                  )}
+   507→                </div>
+   508→              </section>
+   509→            )}
+   510→
+   511→            {/* Explore related genres */}
+   512→            {exploreCategories.length > 0 && (
+   513→              <section
+   514→                aria-label="Explore related topics"
+   515→                className="mt-8 border-t border-slate-200 pt-6"
+   516→              >
+   517→                <div className="mb-3 flex items-center gap-2">
+   518→                  <span className="inline-flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+   519→                    <Sparkles className="size-3.5" strokeWidth={2.25} />
+   520→                  </span>
+   521→                  <h3 className="text-sm font-semibold text-slate-900">
+   522→                    Explore related
+   523→                  </h3>
+   524→                </div>
+   525→                <div className="flex flex-col gap-1.5">
+   526→                  {exploreCategories.map((cat, i) => (
+   527→                    <motion.button
+   528→                      key={cat}
+   529→                      type="button"
+   530→                      onClick={() => onSearch(cat)}
+   531→                      initial={{ opacity: 0, x: -4 }}
+   532→                      animate={{ opacity: 1, x: 0 }}
+   533→                      transition={{ duration: 0.2, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+   534→                      className="group/rel flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-blue-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-[0.98]"
+   535→                      aria-label={`Search books in ${cat}`}
+   536→                    >
+   537→                      <Search className="size-3.5 text-slate-300 transition-colors group-hover/rel:text-blue-400" strokeWidth={2.5} />
+   538→                      <span className="flex-1 text-sm font-medium text-slate-600 transition-colors group-hover/rel:text-blue-700">
+   539→                        {cat}
+   540→                      </span>
+   541→                      <ArrowLeft className="size-3 rotate-180 text-slate-300 transition-colors group-hover/rel:text-blue-400" strokeWidth={2.5} />
+   542→                    </motion.button>
+   543→                  ))}
+   544→                </div>
+   545→              </section>
+   546→            )}
+   547→
+   548→            {/* AI breakdown — visible inline below the middle column on md.
+   549→                On lg+ the grid places it in the right column instead. */}
+   550→            <div className="mt-8 lg:hidden">
+   551→              <AiBreakdown book={book} />
+   552→            </div>
+   553→          </div>
+   554→
+   555→          {/* Right: AI breakdown (lg+ only) */}
+   556→          <aside className="hidden lg:block">
+   557→            <AiBreakdown book={book} />
+   558→          </aside>
+   559→        </div>
+   560→      </motion.article>
+   561→
+   562→      {/* Reading mode overlay */}
+   563→      <AnimatePresence>
+   564→        {readingMode && readingText && (
+   565→          <>
+   566→            <motion.div
+   567→              initial={{ opacity: 0 }}
+   568→              animate={{ opacity: 1 }}
+   569→              exit={{ opacity: 0 }}
+   570→              transition={{ duration: 0.25 }}
+   571→              className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-md"
+   572→              onClick={() => setReadingMode(false)}
+   573→              aria-hidden="true"
+   574→            />
+   575→            <motion.div
+   576→              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+   577→              animate={{ opacity: 1, y: 0, scale: 1 }}
+   578→              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+   579→              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   580→              className="fixed inset-x-4 top-4 z-[61] mx-auto max-h-[calc(100vh-2rem)] max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+   581→              role="dialog"
+   582→              aria-modal="true"
+   583→              aria-labelledby="reading-mode-title"
+   584→            >
+   585→              {/* Header */}
+   586→              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+   587→                <div className="flex min-w-0 items-center gap-3">
+   588→                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+   589→                    <BookOpen className="size-5" strokeWidth={2.25} />
+   590→                  </span>
+   591→                  <div className="min-w-0">
+   592→                    <h2
+   593→                      id="reading-mode-title"
+   594→                      className="truncate text-base font-semibold text-slate-900"
+   595→                      title={book.title}
+   596→                    >
+   597→                      {book.title}
+   598→                    </h2>
+   599→                    <p className="truncate text-xs text-slate-500">
+   600→                      by {authorsText}
+   601→                    </p>
+   602→                  </div>
+   603→                </div>
+   604→                <button
+   605→                  type="button"
+   606→                  onClick={() => setReadingMode(false)}
+   607→                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+   608→                  aria-label="Exit reading mode"
+   609→                >
+   610→                  <Minimize2 className="size-4" strokeWidth={2} />
+   611→                </button>
+   612→              </div>
+   613→
+   614→              {/* Body — scrollable reading content */}
+   615→              <div className="max-h-[calc(100vh-8rem)] overflow-y-auto px-6 py-8 sm:px-10 sm:py-10">
+   616→                <div className="mx-auto max-w-2xl">
+   617→                  {/* Reading time chip */}
+   618→                  {readingTime && (
+   619→                    <div className="mb-6 flex items-center justify-center">
+   620→                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+   621→                        <Clock className="size-3.5" strokeWidth={2.25} />
+   622→                        {readingTime.label} read
+   623→                      </span>
+   624→                    </div>
+   625→                  )}
+   626→                  <p className="trueread-dropcap text-lg leading-relaxed text-slate-700 sm:text-xl sm:leading-relaxed">
+   627→                    {hasPreview ? renderSnippet(book.previewSnippet!) : book.description}
+   628→                  </p>
+   629→                </div>
+   630→              </div>
+   631→
+   632→              {/* Footer */}
+   633→              <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3">
+   634→                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+   635→                  <Globe className="size-3" strokeWidth={2} />
+   636→                  Source: {sourceLabel}
+   637→                  <span aria-hidden="true">·</span>
+   638→                  Press{' '}
+   639→                  <kbd className="rounded border border-slate-200 bg-white px-1 py-0.5 text-[9px] font-semibold text-slate-500">
+   640→                    Esc
+   641→                  </kbd>{' '}
+   642→                  to exit
+   643→                </p>
+   644→              </div>
+   645→            </motion.div>
+   646→          </>
+   647→        )}
+   648→      </AnimatePresence>
+   649→    </div>
+   650→  )
+   651→}
+   652→
+   653→export default DetailView
+   654→

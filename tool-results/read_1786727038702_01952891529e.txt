@@ -1,0 +1,698 @@
+     1→'use client'
+     2→
+     3→import * as React from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  AlertCircle,
+     7→  ArrowLeft,
+     8→  ArrowRight,
+     9→  Grid3X3,
+    10→  Info,
+    11→  LayoutList,
+    12→  SearchX,
+    13→  Filter,
+    14→  Star,
+    15→  GitCompare,
+    16→  X,
+    17→  User,
+    18→} from 'lucide-react'
+    19→import type { Book, BookSource } from '@/components/trueread/types'
+    20→import { Button } from '@/components/ui/button'
+    21→import { Skeleton } from '@/components/ui/skeleton'
+    22→import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+    23→import {
+    24→  Select,
+    25→  SelectContent,
+    26→  SelectItem,
+    27→  SelectTrigger,
+    28→  SelectValue,
+    29→} from '@/components/ui/select'
+    30→import { BookCard } from './book-card'
+    31→import { SearchBar } from './search-bar'
+    32→import { CompareModal } from './compare-modal'
+    33→import { formatQueryForDisplay, isAuthorSearch } from './query-format'
+    34→import { cn } from '@/lib/utils'
+    35→
+    36→export interface ResultsViewProps {
+    37→  query: string
+    38→  results: Book[]
+    39→  totalItems: number
+    40→  page: number
+    41→  maxResults: number
+    42→  source: BookSource
+    43→  isLoading: boolean
+    44→  error: string | null
+    45→  onSearch: (q: string) => void
+    46→  onSelectBook: (book: Book) => void
+    47→  onPageChange: (page: number) => void
+    48→  onBack: () => void
+    49→  /** Reading list membership for bookmark badges. */
+    50→  bookmarkedIds?: Set<string>
+    51→  /** Toggle bookmark on a book. */
+    52→  onToggleBookmark?: (book: Book) => void
+    53→}
+    54→
+    55→type SortKey = 'relevance' | 'newest' | 'oldest'
+    56→type ViewMode = 'grid' | 'list'
+    57→
+    58→const SKELETON_COUNT = 12
+    59→/** Max books that can be selected for comparison. */
+    60→const MAX_COMPARE = 3
+    61→
+    62→/** Build a sliding window of visible page numbers, capped at `maxVisible`. */
+    63→function pageWindow(current: number, total: number, maxVisible = 5): number[] {
+    64→  if (total <= maxVisible) {
+    65→    return Array.from({ length: total }, (_, i) => i + 1)
+    66→  }
+    67→  const half = Math.floor(maxVisible / 2)
+    68→  let start = current - half
+    69→  let end = current + half
+    70→  if (start < 1) {
+    71→    start = 1
+    72→    end = maxVisible
+    73→  }
+    74→  if (end > total) {
+    75→    end = total
+    76→    start = total - maxVisible + 1
+    77→  }
+    78→  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+    79→}
+    80→
+    81→/** Derive sorted decade buckets from the current page's books. */
+    82→function deriveDecades(books: Book[]): { decade: number; label: string; count: number }[] {
+    83→  const counts = new Map<number, number>()
+    84→  for (const b of books) {
+    85→    if (!b.year) continue
+    86→    const y = Number(b.year)
+    87→    if (!Number.isFinite(y)) continue
+    88→    const decade = Math.floor(y / 10) * 10
+    89→    counts.set(decade, (counts.get(decade) ?? 0) + 1)
+    90→  }
+    91→  return Array.from(counts.entries())
+    92→    .map(([decade, count]) => ({ decade, label: `${decade}s`, count }))
+    93→    .sort((a, b) => a.decade - b.decade)
+    94→}
+    95→
+    96→/** Animated number counter. */
+    97→function AnimatedCount({ value }: { value: number }) {
+    98→  return (
+    99→    <motion.span
+   100→      key={value}
+   101→      initial={{ opacity: 0, y: 8 }}
+   102→      animate={{ opacity: 1, y: 0 }}
+   103→      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   104→      className="inline-block font-medium text-slate-700"
+   105→    >
+   106→      {value.toLocaleString()}
+   107→    </motion.span>
+   108→  )
+   109→}
+   110→
+   111→/** Rating filter options. */
+   112→const RATING_FILTERS = [
+   113→  { value: 0, label: 'Any rating' },
+   114→  { value: 4, label: '4+ stars' },
+   115→  { value: 3, label: '3+ stars' },
+   116→] as const
+   117→
+   118→/**
+   119→ * Results grid view. Shows a compact header (back + search), the results
+   120→ * header (query + count + sort), an optional decade jump-bar, the responsive
+   121→ * BookCard grid, and pagination. Includes skeleton / empty / error states.
+   122→ */
+   123→export function ResultsView({
+   124→  query,
+   125→  results,
+   126→  totalItems,
+   127→  page,
+   128→  maxResults,
+   129→  source,
+   130→  isLoading,
+   131→  error,
+   132→  onSearch,
+   133→  onSelectBook,
+   134→  onPageChange,
+   135→  onBack,
+   136→  bookmarkedIds,
+   137→  onToggleBookmark,
+   138→}: ResultsViewProps) {
+   139→  const [sort, setSort] = React.useState<SortKey>('relevance')
+   140→  const [searchValue, setSearchValue] = React.useState('')
+   141→  const [activeDecade, setActiveDecade] = React.useState<number | null>(null)
+   142→  const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
+   143→  const [minRating, setMinRating] = React.useState<number>(0)
+   144→  const [compareMode, setCompareMode] = React.useState(false)
+   145→  const [compareSelected, setCompareSelected] = React.useState<Book[]>([])
+   146→  const [compareOpen, setCompareOpen] = React.useState(false)
+   147→
+   148→  const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
+   149→  const displayQuery = formatQueryForDisplay(query)
+   150→  const isAuthor = isAuthorSearch(query)
+   151→
+   152→  // Reset sort + decade filter + compare mode when the query changes (new search = fresh page).
+   153→  React.useEffect(() => {
+   154→    setSort('relevance')
+   155→    setSearchValue('')
+   156→    setActiveDecade(null)
+   157→    setViewMode('grid')
+   158→    setMinRating(0)
+   159→    setCompareMode(false)
+   160→    setCompareSelected([])
+   161→  }, [query])
+   162→
+   163→  // Client-side sort of the current page's results.
+   164→  const sortedResults = React.useMemo(() => {
+   165→    if (sort === 'relevance') return results
+   166→    const withYear = (b: Book) => (b.year ? Number(b.year) : -Infinity)
+   167→    const copy = [...results]
+   168→    copy.sort((a, b) => {
+   169→      const ya = withYear(a)
+   170→      const yb = withYear(b)
+   171→      if (ya === -Infinity && yb === -Infinity) return 0
+   172→      if (ya === -Infinity) return 1
+   173→      if (yb === -Infinity) return -1
+   174→      return sort === 'newest' ? yb - ya : ya - yb
+   175→    })
+   176→    return copy
+   177→  }, [results, sort])
+   178→
+   179→  // Decade buckets derived from the (sorted) current page.
+   180→  const decades = React.useMemo(
+   181→    () => deriveDecades(sortedResults),
+   182→    [sortedResults],
+   183→  )
+   184→
+   185→  // Apply the decade + rating filters on top of the sorted list (client-side only).
+   186→  const visibleResults = React.useMemo(() => {
+   187→    return sortedResults.filter((b) => {
+   188→      // Decade filter
+   189→      if (activeDecade != null) {
+   190→        if (!b.year) return false
+   191→        const y = Number(b.year)
+   192→        if (!Number.isFinite(y) || Math.floor(y / 10) * 10 !== activeDecade) return false
+   193→      }
+   194→      // Rating filter
+   195→      if (minRating > 0) {
+   196→        if (b.rating == null || !Number.isFinite(b.rating) || b.rating < minRating) return false
+   197→      }
+   198→      return true
+   199→    })
+   200→  }, [sortedResults, activeDecade, minRating])
+   201→
+   202→  // Pagination math. Sources don't reliably serve deep pages — cap at 8.
+   203→  const totalPages = Math.min(8, Math.max(1, Math.ceil(totalItems / maxResults)))
+   204→  const showPagination = totalItems > maxResults
+   205→  const visiblePages = pageWindow(page, totalPages, 5)
+   206→
+   207→  const handleSortChange = (v: string) => {
+   208→    setSort(v as SortKey)
+   209→  }
+   210→
+   211→  // Toggle compare selection (max MAX_COMPARE).
+   212→  const handleToggleCompare = (book: Book) => {
+   213→    setCompareSelected((prev) => {
+   214→      const idx = prev.findIndex((b) => b.id === book.id)
+   215→      if (idx >= 0) {
+   216→        return prev.filter((b) => b.id !== book.id)
+   217→      }
+   218→      if (prev.length >= MAX_COMPARE) return prev
+   219→      return [...prev, book]
+   220→    })
+   221→  }
+   222→
+   223→  // Exit compare mode clears selections.
+   224→  const handleExitCompareMode = () => {
+   225→    setCompareMode(false)
+   226→    setCompareSelected([])
+   227→  }
+   228→
+   229→  // Compare selected IDs for quick lookup
+   230→  const compareSelectedIds = React.useMemo(
+   231→    () => new Set(compareSelected.map((b) => b.id)),
+   232→    [compareSelected],
+   233→  )
+   234→
+   235→  return (
+   236→    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
+   237→      {/* Compact header row */}
+   238→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   239→        <Button
+   240→          type="button"
+   241→          variant="ghost"
+   242→          onClick={onBack}
+   243→          className="h-10 w-fit gap-2 px-3 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+   244→        >
+   245→          <ArrowLeft className="size-4" />
+   246→          Back to home
+   247→        </Button>
+   248→
+   249→        <SearchBar
+   250→          value={searchValue}
+   251→          onChange={setSearchValue}
+   252→          onSubmit={onSearch}
+   253→          isLoading={isLoading}
+   254→          variant="compact"
+   255→          placeholder="Search again…"
+   256→          className="sm:w-80 md:w-96"
+   257→        />
+   258→      </div>
+   259→
+   260→      {/* Results header */}
+   261→      <motion.div
+   262→        initial={{ opacity: 0, y: 8 }}
+   263→        animate={{ opacity: 1, y: 0 }}
+   264→        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   265→        className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+   266→      >
+   267→        <div className="min-w-0">
+   268→          <div className="flex items-center gap-2">
+   269→            {isAuthor && (
+   270→              <span className="inline-flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+   271→                <User className="size-3.5" strokeWidth={2.25} />
+   272→              </span>
+   273→            )}
+   274→            <h2
+   275→              className="truncate text-2xl font-bold text-slate-900"
+   276→              title={displayQuery}
+   277→            >
+   278→              {displayQuery}
+   279→            </h2>
+   280→          </div>
+   281→          <p className="mt-1 text-sm text-slate-500">
+   282→            About{' '}
+   283→            <AnimatedCount value={totalItems} />{' '}
+   284→            results from {sourceLabel}
+   285→          </p>
+   286→        </div>
+   287→
+   288→        <div className="flex shrink-0 items-center gap-2">
+   289→          {/* Compare toggle button */}
+   290→          {results.length >= 2 && (
+   291→            <button
+   292→              type="button"
+   293→              onClick={() => {
+   294→                if (compareMode) {
+   295→                  handleExitCompareMode()
+   296→                } else {
+   297→                  setCompareMode(true)
+   298→                }
+   299→              }}
+   300→              className={cn(
+   301→                'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-all active:scale-95',
+   302→                compareMode
+   303→                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+   304→                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+   305→              )}
+   306→              aria-pressed={compareMode}
+   307→              aria-label="Toggle compare mode"
+   308→            >
+   309→              <GitCompare className="size-3.5" strokeWidth={2.25} />
+   310→              <span className="hidden sm:inline">Compare</span>
+   311→            </button>
+   312→          )}
+   313→
+   314→          <span className="text-sm text-slate-500" id="sort-label">
+   315→            Sort:
+   316→          </span>
+   317→          <Select value={sort} onValueChange={handleSortChange}>
+   318→            <SelectTrigger
+   319→              size="sm"
+   320→              className="h-9 w-36 bg-white"
+   321→              aria-label="Sort results"
+   322→            >
+   323→              <SelectValue />
+   324→            </SelectTrigger>
+   325→            <SelectContent>
+   326→              <SelectItem value="relevance">Relevance</SelectItem>
+   327→              <SelectItem value="newest">Newest</SelectItem>
+   328→              <SelectItem value="oldest">Oldest</SelectItem>
+   329→            </SelectContent>
+   330→          </Select>
+   331→
+   332→          {/* View toggle */}
+   333→          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
+   334→            <button
+   335→              type="button"
+   336→              onClick={() => setViewMode('grid')}
+   337→              className={cn(
+   338→                'inline-flex size-8 items-center justify-center rounded-md transition-all',
+   339→                viewMode === 'grid'
+   340→                  ? 'bg-blue-50 text-blue-600 shadow-sm'
+   341→                  : 'text-slate-400 hover:text-slate-600',
+   342→              )}
+   343→              aria-label="Grid view"
+   344→              aria-pressed={viewMode === 'grid'}
+   345→            >
+   346→              <Grid3X3 className="size-4" strokeWidth={2} />
+   347→            </button>
+   348→            <button
+   349→              type="button"
+   350→              onClick={() => setViewMode('list')}
+   351→              className={cn(
+   352→                'inline-flex size-8 items-center justify-center rounded-md transition-all',
+   353→                viewMode === 'list'
+   354→                  ? 'bg-blue-50 text-blue-600 shadow-sm'
+   355→                  : 'text-slate-400 hover:text-slate-600',
+   356→              )}
+   357→              aria-label="List view"
+   358→              aria-pressed={viewMode === 'list'}
+   359→            >
+   360→              <LayoutList className="size-4" strokeWidth={2} />
+   361→            </button>
+   362→          </div>
+   363→        </div>
+   364→      </motion.div>
+   365→
+   366→      {/* Transparent source banner — shown only when results came from the
+   367→          Apple Books fallback (Google Books environmentally unavailable). */}
+   368→      {source === 'apple' && (
+   369→        <motion.div
+   370→          initial={{ opacity: 0, y: 4 }}
+   371→          animate={{ opacity: 1, y: 0 }}
+   372→          transition={{ duration: 0.3 }}
+   373→          className="mt-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600"
+   374→        >
+   375→          <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
+   376→          <p>
+   377→            <span className="font-medium text-slate-800">
+   378→              Google Books is temporarily unavailable
+   379→            </span>{' '}
+   380→            from this environment (shared-IP quota). Showing real results from{' '}
+   381→            <span className="font-medium text-blue-700">Apple Books</span>{' '}
+   382→            instead — covers and metadata are real; book previews will show
+   383→            &ldquo;No preview available.&rdquo;
+   384→          </p>
+   385→        </motion.div>
+   386→      )}
+   387→
+   388→      {/* Compare mode banner — appears when compare mode is active */}
+   389→      <AnimatePresence>
+   390→        {compareMode && (
+   391→          <motion.div
+   392→            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+   393→            animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+   394→            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+   395→            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+   396→            className="overflow-hidden"
+   397→          >
+   398→            <div className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+   399→              <div className="flex items-center gap-2 text-sm text-slate-700">
+   400→                <GitCompare className="size-4 text-blue-600" strokeWidth={2.25} />
+   401→                <span className="font-medium">
+   402→                  Select {compareSelected.length}/{MAX_COMPARE} books to compare
+   403→                </span>
+   404→              </div>
+   405→              <div className="flex items-center gap-2">
+   406→                <Button
+   407→                  type="button"
+   408→                  size="sm"
+   409→                  onClick={() => setCompareOpen(true)}
+   410→                  disabled={compareSelected.length < 2}
+   411→                  className="h-8 gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
+   412→                >
+   413→                  <GitCompare className="size-3.5" strokeWidth={2.25} />
+   414→                  Compare {compareSelected.length >= 2 ? `${compareSelected.length} books` : '(need 2+)'}
+   415→                </Button>
+   416→                <button
+   417→                  type="button"
+   418→                  onClick={handleExitCompareMode}
+   419→                  className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white hover:text-slate-700"
+   420→                  aria-label="Exit compare mode"
+   421→                >
+   422→                  <X className="size-4" strokeWidth={2} />
+   423→                </button>
+   424→              </div>
+   425→            </div>
+   426→          </motion.div>
+   427→        )}
+   428→      </AnimatePresence>
+   429→
+   430→      {/* Decade + rating filters — client-side filters derived from the current page. */}
+   431→      {(decades.length > 1 || minRating > 0 || sortedResults.some((b) => b.rating != null && b.rating > 0)) && !error && (
+   432→        <motion.div
+   433→          initial={{ opacity: 0 }}
+   434→          animate={{ opacity: 1 }}
+   435→          transition={{ duration: 0.3, delay: 0.1 }}
+   436→          className="mt-4 flex flex-wrap items-center gap-2"
+   437→        >
+   438→          <Filter className="size-3.5 text-slate-400" strokeWidth={2} />
+   439→
+   440→          {/* Year filter */}
+   441→          {decades.length > 1 && (
+   442→            <>
+   443→              <span className="text-xs font-medium text-slate-500">Year:</span>
+   444→              <button
+   445→                type="button"
+   446→                onClick={() => setActiveDecade(null)}
+   447→                className={cn(
+   448→                  'rounded-full px-2.5 py-1 text-xs font-medium transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+   449→                  activeDecade == null
+   450→                    ? 'bg-blue-600 text-white shadow-sm'
+   451→                    : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+   452→                )}
+   453→              >
+   454→                All
+   455→              </button>
+   456→              {decades.map((d) => (
+   457→                <button
+   458→                  key={d.decade}
+   459→                  type="button"
+   460→                  onClick={() =>
+   461→                    setActiveDecade((cur) => (cur === d.decade ? null : d.decade))
+   462→                  }
+   463→                  className={cn(
+   464→                    'rounded-full px-2.5 py-1 text-xs font-medium transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+   465→                    activeDecade === d.decade
+   466→                      ? 'bg-blue-600 text-white shadow-sm'
+   467→                      : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+   468→                  )}
+   469→                  aria-pressed={activeDecade === d.decade}
+   470→                >
+   471→                  {d.label}
+   472→                  <span className="ml-1 opacity-60">{d.count}</span>
+   473→                </button>
+   474→              ))}
+   475→            </>
+   476→          )}
+   477→
+   478→          {/* Rating filter — only shown if some books have ratings */}
+   479→          {sortedResults.some((b) => b.rating != null && b.rating > 0) && (
+   480→            <>
+   481→              <span className="ml-2 text-xs font-medium text-slate-500">Rating:</span>
+   482→              {RATING_FILTERS.map((rf) => (
+   483→                <button
+   484→                  key={rf.value}
+   485→                  type="button"
+   486→                  onClick={() => setMinRating(rf.value)}
+   487→                  className={cn(
+   488→                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+   489→                    minRating === rf.value
+   490→                      ? 'bg-blue-600 text-white shadow-sm'
+   491→                      : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+   492→                  )}
+   493→                  aria-pressed={minRating === rf.value}
+   494→                >
+   495→                  {rf.value > 0 && <Star className="size-3 fill-current" strokeWidth={0} />}
+   496→                  {rf.label}
+   497→                </button>
+   498→              ))}
+   499→            </>
+   500→          )}
+   501→        </motion.div>
+   502→      )}
+   503→
+   504→      {/* Body */}
+   505→      <div className="mt-6">
+   506→        {error ? (
+   507→          <Alert variant="destructive" className="bg-white">
+   508→            <AlertCircle className="size-4" />
+   509→            <AlertTitle>Search failed</AlertTitle>
+   510→            <AlertDescription>{error}</AlertDescription>
+   511→          </Alert>
+   512→        ) : isLoading && results.length === 0 ? (
+   513→          <div className={cn(
+   514→            viewMode === 'grid'
+   515→              ? 'grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+   516→              : 'flex flex-col gap-3',
+   517→          )}>
+   518→            {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+   519→              viewMode === 'grid' ? (
+   520→                <div key={i} className="flex flex-col gap-3">
+   521→                  <Skeleton className="trueread-shimmer aspect-[2/3] w-full rounded-lg" />
+   522→                  <Skeleton className="trueread-shimmer h-4 w-5/6" />
+   523→                  <Skeleton className="trueread-shimmer h-3 w-3/4" />
+   524→                  <Skeleton className="trueread-shimmer h-3 w-1/3" />
+   525→                </div>
+   526→              ) : (
+   527→                <div key={i} className="flex items-center gap-4 rounded-xl p-3">
+   528→                  <Skeleton className="trueread-shimmer size-16 rounded-lg shrink-0" />
+   529→                  <div className="flex-1 flex flex-col gap-2">
+   530→                    <Skeleton className="trueread-shimmer h-4 w-2/3" />
+   531→                    <Skeleton className="trueread-shimmer h-3 w-1/2" />
+   532→                  </div>
+   533→                </div>
+   534→              )
+   535→            ))}
+   536→          </div>
+   537→        ) : visibleResults.length === 0 ? (
+   538→          <EmptyState query={displayQuery} />
+   539→        ) : viewMode === 'grid' ? (
+   540→          <div
+   541→            className={cn(
+   542→              'grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
+   543→              isLoading && 'opacity-60 transition-opacity',
+   544→            )}
+   545→          >
+   546→            {visibleResults.map((book, i) => (
+   547→              <BookCard
+   548→                key={book.id}
+   549→                book={book}
+   550→                onSelect={onSelectBook}
+   551→                index={i}
+   552→                variant="grid"
+   553→                isBookmarked={bookmarkedIds?.has(book.id) ?? false}
+   554→                onToggleBookmark={compareMode ? undefined : onToggleBookmark}
+   555→                compareMode={compareMode}
+   556→                isCompareSelected={compareSelectedIds.has(book.id)}
+   557→                onToggleCompare={handleToggleCompare}
+   558→              />
+   559→            ))}
+   560→          </div>
+   561→        ) : (
+   562→          <div
+   563→            className={cn(
+   564→              'flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200/70 trueread-shadow-card',
+   565→              isLoading && 'opacity-60 transition-opacity',
+   566→            )}
+   567→          >
+   568→            {visibleResults.map((book, i) => (
+   569→              <BookCard
+   570→                key={book.id}
+   571→                book={book}
+   572→                onSelect={onSelectBook}
+   573→                index={i}
+   574→                variant="list"
+   575→                isBookmarked={bookmarkedIds?.has(book.id) ?? false}
+   576→                onToggleBookmark={compareMode ? undefined : onToggleBookmark}
+   577→                compareMode={compareMode}
+   578→                isCompareSelected={compareSelectedIds.has(book.id)}
+   579→                onToggleCompare={handleToggleCompare}
+   580→              />
+   581→            ))}
+   582→          </div>
+   583→        )}
+   584→
+   585→        {/* Filter empty state — when filters yield no books. */}
+   586→        {!error &&
+   587→          !isLoading &&
+   588→          visibleResults.length === 0 &&
+   589→          sortedResults.length > 0 &&
+   590→          (activeDecade != null || minRating > 0) && (
+   591→            <div className="mt-6 flex flex-col items-center gap-2 rounded-xl bg-white px-6 py-8 text-center ring-1 ring-slate-200/70">
+   592→              <p className="text-sm text-slate-500">
+   593→                {activeDecade != null && minRating > 0
+   594→                  ? `No books from the ${activeDecade}s with ${minRating}+ stars on this page.`
+   595→                  : activeDecade != null
+   596→                    ? `No books from the ${activeDecade}s on this page.`
+   597→                    : `No books with ${minRating}+ stars on this page.`}
+   598→              </p>
+   599→              <button
+   600→                type="button"
+   601→                onClick={() => {
+   602→                  setActiveDecade(null)
+   603→                  setMinRating(0)
+   604→                }}
+   605→                className="text-sm font-medium text-blue-600 hover:underline"
+   606→              >
+   607→                Clear filters
+   608→              </button>
+   609→            </div>
+   610→          )}
+   611→      </div>
+   612→
+   613→      {/* Pagination */}
+   614→      {showPagination && !error && sortedResults.length > 0 && (
+   615→        <nav
+   616→          aria-label="Results pagination"
+   617→          className="mt-12 flex flex-wrap items-center justify-center gap-2"
+   618→        >
+   619→          <Button
+   620→            type="button"
+   621→            variant="outline"
+   622→            size="sm"
+   623→            onClick={() => onPageChange(page - 1)}
+   624→            disabled={page <= 1 || isLoading}
+   625→            className="h-9 gap-1.5 border-slate-200 bg-white px-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+   626→          >
+   627→            <ArrowLeft className="size-4" />
+   628→            <span className="hidden sm:inline">Prev</span>
+   629→          </Button>
+   630→
+   631→          {visiblePages.map((p) => {
+   632→            const isActive = p === page
+   633→            return (
+   634→              <button
+   635→                key={p}
+   636→                type="button"
+   637→                onClick={() => onPageChange(p)}
+   638→                disabled={isLoading}
+   639→                aria-current={isActive ? 'page' : undefined}
+   640→                aria-label={`Go to page ${p}`}
+   641→                className={cn(
+   642→                  'inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-3 text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95',
+   643→                  isActive
+   644→                    ? 'bg-blue-600 text-white shadow-sm'
+   645→                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+   646→                )}
+   647→              >
+   648→                {p}
+   649→              </button>
+   650→            )
+   651→          })}
+   652→
+   653→          <Button
+   654→            type="button"
+   655→            variant="outline"
+   656→            size="sm"
+   657→            onClick={() => onPageChange(page + 1)}
+   658→            disabled={page >= totalPages || isLoading}
+   659→            className="h-9 gap-1.5 border-slate-200 bg-white px-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+   660→          >
+   661→            <span className="hidden sm:inline">Next</span>
+   662→            <ArrowRight className="size-4" />
+   663→          </Button>
+   664→        </nav>
+   665→      )}
+   666→
+   667→      {/* Compare modal */}
+   668→      <CompareModal
+   669→        books={compareSelected}
+   670→        isOpen={compareOpen}
+   671→        onClose={() => setCompareOpen(false)}
+   672→        onSelectBook={onSelectBook}
+   673→      />
+   674→    </div>
+   675→  )
+   676→}
+   677→
+   678→function EmptyState({ query }: { query: string }) {
+   679→  return (
+   680→    <motion.div
+   681→      initial={{ opacity: 0, y: 12 }}
+   682→      animate={{ opacity: 1, y: 0 }}
+   683→      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   684→      className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-slate-200/70 trueread-shadow-card"
+   685→    >
+   686→      <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+   687→        <SearchX className="size-7" strokeWidth={1.75} />
+   688→      </span>
+   689→      <h3 className="text-lg font-semibold text-slate-900">
+   690→        No books found for &ldquo;{query}&rdquo;
+   691→      </h3>
+   692→      <p className="text-sm text-slate-500">Try a different title or topic.</p>
+   693→    </motion.div>
+   694→  )
+   695→}
+   696→
+   697→export default ResultsView
+   698→

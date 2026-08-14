@@ -282,6 +282,15 @@ export function ResultsView({
             About{' '}
             <AnimatedCount value={totalItems} />{' '}
             results from {sourceLabel}
+            {totalItems > 0 && (
+              <span className="ml-2 hidden text-xs text-slate-400 sm:inline">
+                · Showing{' '}
+                <span className="font-medium text-slate-500">
+                  {(page - 1) * maxResults + 1}–
+                  {Math.min(page * maxResults, totalItems)}
+                </span>
+              </span>
+            )}
           </p>
         </div>
 

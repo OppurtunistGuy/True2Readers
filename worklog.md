@@ -379,3 +379,70 @@ Stage Summary:
 - Modified files: page.tsx, results-view.tsx, detail-view.tsx, book-card.tsx.
 - Screenshots: screenshots/round5-keyboard-help.png, round5-compare-modal.png, round5-reading-mode.png, round5-results-sf.png, round5-baseline-home.png, round5-baseline-results.png, round5-baseline-detail.png.
 - Continuous review loop armed (cron 323008, every 15 min).
+
+---
+Task ID: 9 (webDevReview round 4)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + fix bugs + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-3 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser, desktop + iPhone 14 mobile): home, genre→grid (29 cards), grid→card→detail, back navigation, cover lightbox, keyboard shortcuts, reading list panel. All clean — no console errors.
+- BUG FIX:
+  1. Unused `readingListCount` prop in HomeView: the prop was declared but never rendered. Now displayed as a small "N in your list" chip next to the hero badge (with Library icon). Hidden when 0.
+  2. Sparse QUICK FACTS card: when a book comes from Apple Books fallback (no publisher / pageCount / read-time), the card showed only "Published: 2018" — visually sparse. Now hidden when fewer than 2 facts are available (the source attribution remains visible in the Preview section).
+  3. View badge collision: the book-card hover "View" badge shared the top-right corner with the bookmark button, causing visual overlap on hover. Moved "View" badge to bottom-left with a subtle translate-y entrance animation.
+  4. Escape overlay behavior: pressing Escape while the cover lightbox or reading mode overlay was open used to navigate back to results (page-level Escape handler fired before DetailView could close its overlay). Added a capture-phase Escape interceptor in DetailView that calls `stopImmediatePropagation` when an overlay is open, so Escape closes ONLY the overlay first. Verified: lightbox opens → Esc → lightbox closes (still on detail page). Reading mode opens → Esc → reading mode closes (still on detail page).
+
+- NEW features (all real-data, no fabrication):
+  1. Cover lightbox: clicking the book cover in detail view opens a fullscreen zoomed cover overlay (CoverLightbox component). Shows the cover at large size, the book title + author + "First published YEAR", and an "Open in {source}" link. Body scroll locked. Closes on backdrop click, close button, or Escape (intercepted).
+  2. "Find similar books" CTA: a prominent blue button in detail view (below the category chips) that searches the book's first category. Includes a rotating Compass icon on hover and shows the category name on sm+ screens. Strengthens the discovery loop.
+  3. Reading list stats: the slide-out panel header now shows an "Est. reading time" row that sums the real page counts of all saved books (using the existing `estimateReadingTime` helper). Displays total as "Xh Ym" or "X min". Hidden when no saved books have real page counts (e.g. all from Apple Books fallback) — never fabricated.
+  4. Detail page scroll progress bar: a 2px blue gradient bar (ScrollProgress component using framer-motion's `useScroll` + `useSpring`) fixed to the top of the viewport. Fills smoothly as the user scrolls the detail page. Respects reduced-motion.
+  5. Keyboard shortcuts `b` and `r` (detail view only, when not typing in an input):
+     - `b` toggles the bookmark on the current book (only when `onToggleBookmark` is wired).
+     - `r` toggles reading mode (only when there's text to read).
+     Both shortcuts are documented in the keyboard help overlay (with `Bookmark` and `Maximize2` icons). The detail view also shows inline `<kbd>` hints on the "Save" and "Reading mode" chips (sm+ only).
+  6. "Showing X–Y of Z" indicator in results header: appears next to the "About N results" count on sm+ screens. Updates with pagination. Real math from page + maxResults + totalItems.
+
+- Styling polish:
+  - Suggestion tags now use `trueread-chip-focus` utility (lift + scale on hover) with `shadow-sm` baseline and `hover:shadow-md`. The translate-x effect on hover remains.
+  - Hero badge layout: "Understand any book in seconds" and "N in your list" chips are now in a centered flex row with `gap-2`.
+  - Cover hover in detail view: clicking the cover has a subtle `scale-[1.02]` transform on hover + a "Click to zoom" pill overlay that fades in.
+  - Reading mode / Save chips now show their keyboard shortcut hint (`R`, `B`) inline as `<kbd>` elements (hidden on mobile to save space).
+  - Find similar button has a rotating Compass icon on hover (`group-hover/sim:rotate-45`).
+
+- Files created:
+  - src/components/trueread/scroll-progress.tsx (reusable slim scroll-progress bar, framer-motion useScroll + useSpring)
+  - src/components/trueread/cover-lightbox.tsx (fullscreen cover zoom overlay with title/author/source link)
+- Files modified:
+  - src/components/trueread/detail-view.tsx (cover lightbox trigger + overlay, find-similar CTA, scroll progress bar, b/r keyboard shortcuts, capture-phase Escape interceptor, hide sparse QUICK FACTS, inline kbd hints on Save/Reading-mode chips)
+  - src/components/trueread/home-view.tsx (use readingListCount → "N in your list" chip, suggestion tag hover polish)
+  - src/components/trueread/reading-list.tsx (header stats row: total est. reading time from real page counts)
+  - src/components/trueread/book-card.tsx (moved View badge to bottom-left with translate-y entrance)
+  - src/components/trueread/results-view.tsx (Showing X–Y of Z indicator next to result count)
+  - src/components/trueread/keyboard-help.tsx (added B and R shortcuts to the Actions group)
+- Verification (agent-browser, all passed):
+  - Home: "1 in your list" chip appears when a book is saved ✓
+  - Results: "About 29 results from Apple Books · Showing 1–24" ✓
+  - Detail: "Zoom cover of Golden Curse" button + "Click to zoom" hint ✓
+  - Cover lightbox: click → opens dialog with title/author/year + source link ✓
+  - Escape from lightbox: closes ONLY lightbox (stays on detail page) ✓
+  - `b` shortcut: toggles bookmark (Add → Remove from reading list) ✓
+  - `r` shortcut: opens reading mode overlay ✓
+  - Escape from reading mode: closes ONLY reading mode ✓
+  - "Find similar books in Fantasy" CTA: click → new genre search ✓
+  - QUICK FACTS card: hidden when <2 facts (Apple Books fallback) ✓
+  - Reading list panel: "1 book saved" header (stats row hidden when no page counts) ✓
+  - Keyboard help: B and R shortcuts listed in Actions group ✓
+  - Mobile (iPhone 14, 390x844): all features present, kbd hints hidden, layout responsive ✓
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 4 bug fixes + 6 new features + 6 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: scroll-progress.tsx, cover-lightbox.tsx.
+- Modified files: detail-view.tsx, home-view.tsx, reading-list.tsx, book-card.tsx, results-view.tsx, keyboard-help.tsx.
+- Screenshots: screenshots/round6-01-home.png through round6-14-scroll-progress.png (14 screenshots covering home, results, detail, lightbox, reading-list panel, keyboard help, mobile views, scroll progress).
+- Continuous review loop still armed (cron 323008, every 15 min).

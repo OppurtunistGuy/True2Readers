@@ -6,12 +6,14 @@ import {
   Bookmark,
   BookmarkCheck,
   BookOpen,
+  Clock,
   ListX,
   X,
 } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
 import { CoverImage } from './cover-image'
 import { Button } from '@/components/ui/button'
+import { estimateReadingTime } from './reading-insights'
 import { cn } from '@/lib/utils'
 
 export interface ReadingListProps {
@@ -86,41 +88,75 @@ export function ReadingList({
               aria-label="Reading list"
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="inline-flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                    <BookmarkCheck className="size-4" strokeWidth={2.25} />
-                  </span>
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-900">
-                      Reading List
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      {books.length} book{books.length !== 1 ? 's' : ''} saved
-                    </p>
+              <div className="border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                      <BookmarkCheck className="size-4" strokeWidth={2.25} />
+                    </span>
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        Reading List
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        {books.length} book{books.length !== 1 ? 's' : ''} saved
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  {books.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {books.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={onClear}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Clear reading list"
+                      >
+                        <ListX className="size-3.5" strokeWidth={2} />
+                        Clear
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={onClear}
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                      aria-label="Clear reading list"
+                      onClick={onToggle}
+                      className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                      aria-label="Close reading list"
                     >
-                      <ListX className="size-3.5" strokeWidth={2} />
-                      Clear
+                      <X className="size-4" strokeWidth={2} />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={onToggle}
-                    className="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                    aria-label="Close reading list"
-                  >
-                    <X className="size-4" strokeWidth={2} />
-                  </button>
+                  </div>
                 </div>
+                {/* Stats row — total reading time derived from real page counts */}
+                {books.length > 0 && (() => {
+                  const totalMinutes = books.reduce((sum, b) => {
+                    const rt = estimateReadingTime(b.pageCount)
+                    return sum + (rt?.minutes ?? 0)
+                  }, 0)
+                  const withPages = books.filter(
+                    (b) => b.pageCount != null && b.pageCount > 0,
+                  ).length
+                  if (totalMinutes === 0 && withPages === 0) return null
+                  let timeLabel: string
+                  if (totalMinutes < 60) {
+                    timeLabel = `${totalMinutes} min`
+                  } else {
+                    const h = Math.floor(totalMinutes / 60)
+                    const m = Math.round(totalMinutes % 60)
+                    timeLabel = m === 0 ? `${h}h` : `${h}h ${m}m`
+                  }
+                  return (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50/60 px-3 py-2 ring-1 ring-blue-100/60">
+                      <span className="inline-flex size-6 items-center justify-center rounded-md bg-white text-blue-600 shadow-sm">
+                        <Clock className="size-3.5" strokeWidth={2.25} />
+                      </span>
+                      <span className="text-xs font-medium text-slate-700">
+                        Est. reading time
+                      </span>
+                      <span className="ml-auto text-xs font-bold text-blue-700">
+                        {timeLabel}
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Book list */}
