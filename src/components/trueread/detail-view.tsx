@@ -14,6 +14,12 @@ import {
   Share2,
   Sparkles,
   Check,
+  BookOpen,
+  User,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Globe,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -22,6 +28,7 @@ import { AiBreakdown } from './ai-breakdown'
 import { SearchBar } from './search-bar'
 import { StarRating } from './star-rating'
 import { BookmarkButton } from './reading-list'
+import { AuthorLinks } from './author-links'
 import { getBreakdown } from './mock-ai'
 import { estimateReadingTime, getReaderFit } from './reading-insights'
 import { cn } from '@/lib/utils'
@@ -137,6 +144,12 @@ export function DetailView({
     }
   }, [book.title, authorsText, book.year])
 
+  // Unique categories for the explore section (deduped, limited)
+  const exploreCategories = React.useMemo(() => {
+    if (!book.categories || book.categories.length === 0) return []
+    return [...new Set(book.categories)].slice(0, 4)
+  }, [book.categories])
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
       {/* Compact header row */}
@@ -218,13 +231,18 @@ export function DetailView({
             <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 md:text-4xl">
               {book.title}
             </h1>
-            <p className="mt-2 text-base font-medium text-blue-600">
-              by {authorsText}
-            </p>
+
+            {/* Author links — clickable for search */}
+            <AuthorLinks book={book} onSearch={onSearch} />
 
             {/* Meta row */}
             <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-              {book.year && <span>{book.year}</span>}
+              {book.year && (
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="size-3" strokeWidth={2} />
+                  {book.year}
+                </span>
+              )}
               {book.year && book.publisher && (
                 <span aria-hidden="true">•</span>
               )}
@@ -233,7 +251,10 @@ export function DetailView({
                 <span aria-hidden="true">•</span>
               )}
               {book.pageCount != null && book.pageCount > 0 && (
-                <span>{book.pageCount} pages</span>
+                <span className="inline-flex items-center gap-1">
+                  <BookOpen className="size-3" strokeWidth={2} />
+                  {book.pageCount} pages
+                </span>
               )}
             </div>
 
@@ -324,7 +345,10 @@ export function DetailView({
 
               {/* Source attribution */}
               <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                <span>Source: {sourceLabel}</span>
+                <span className="inline-flex items-center gap-1">
+                  <Globe className="size-3" strokeWidth={2} />
+                  Source: {sourceLabel}
+                </span>
                 {book.previewLink && (
                   <a
                     href={book.previewLink}
@@ -347,8 +371,9 @@ export function DetailView({
               >
                 <h2
                   id="about-heading"
-                  className="text-sm font-semibold text-slate-900"
+                  className="flex items-center gap-2 text-sm font-semibold text-slate-900"
                 >
+                  <BookOpen className="size-4 text-blue-600" strokeWidth={2.25} />
                   About this book
                 </h2>
                 <p
@@ -359,15 +384,64 @@ export function DetailView({
                 >
                   {book.description}
                 </p>
-                {book.description && book.description.length > 280 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFullDesc((v) => !v)}
-                    className="mt-2 text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
-                  >
-                    {showFullDesc ? 'Show less' : 'Show more'}
-                  </button>
-                )}
+                <div className="mt-3 flex items-center gap-3">
+                  {book.description && book.description.length > 280 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullDesc((v) => !v)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+                    >
+                      {showFullDesc ? (
+                        <>
+                          <ChevronUp className="size-3" strokeWidth={2.5} />
+                          Show less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="size-3" strokeWidth={2.5} />
+                          Show more
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Explore related genres */}
+            {exploreCategories.length > 0 && (
+              <section
+                aria-label="Explore related topics"
+                className="mt-8 border-t border-slate-200 pt-6"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="inline-flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <Sparkles className="size-3.5" strokeWidth={2.25} />
+                  </span>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Explore related
+                  </h3>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {exploreCategories.map((cat, i) => (
+                    <motion.button
+                      key={cat}
+                      type="button"
+                      onClick={() => onSearch(cat)}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+                      className="group/rel flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-blue-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-[0.98]"
+                      aria-label={`Search books in ${cat}`}
+                    >
+                      <Search className="size-3.5 text-slate-300 transition-colors group-hover/rel:text-blue-400" strokeWidth={2.5} />
+                      <span className="flex-1 text-sm font-medium text-slate-600 transition-colors group-hover/rel:text-blue-700">
+                        {cat}
+                      </span>
+                      <ArrowLeft className="size-3 rotate-180 text-slate-300 transition-colors group-hover/rel:text-blue-400" strokeWidth={2.5} />
+                    </motion.button>
+                  ))}
+                </div>
               </section>
             )}
 

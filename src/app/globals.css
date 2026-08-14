@@ -279,6 +279,54 @@
   }
 }
 
+/* Search progress bar — slim top indicator */
+@layer utilities {
+  .trueread-progress-bar {
+    background: linear-gradient(
+      90deg,
+      oklch(0.55 0.2 256),
+      oklch(0.60 0.18 250),
+      oklch(0.55 0.2 256)
+    );
+    background-size: 200% 100%;
+    animation: trueread-progress-shimmer 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes trueread-progress-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Card hover lift with subtle glow */
+@layer utilities {
+  .trueread-card-hover {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .trueread-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 12px 28px -12px rgba(37, 99, 235, 0.12);
+  }
+
+  /* Gentle focus ring for interactive chips */
+  .trueread-chip-focus {
+    transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .trueread-chip-focus:hover {
+    transform: translateY(-1px);
+  }
+  .trueread-chip-focus:active {
+    transform: translateY(0) scale(0.97);
+  }
+}
+
 /* Custom scrollbar — slim, premium */
 @layer base {
   * {

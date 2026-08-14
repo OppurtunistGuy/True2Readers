@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { BookOpen, Heart } from 'lucide-react'
+import { BookOpen, Heart, Github } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface FooterProps {
@@ -24,9 +24,10 @@ export function Footer({ className }: FooterProps) {
     >
       <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-2 px-4 py-5 sm:flex-row sm:justify-between">
         <div className="flex items-center gap-2">
-          <BookOpen className="size-3.5 text-slate-400" aria-hidden="true" />
+          <BookOpen className="size-3.5 text-blue-500" aria-hidden="true" />
           <p className="text-xs text-slate-400">
-            Source: Google Books API
+            Powered by <span className="font-medium text-slate-500">Google Books API</span> with{' '}
+            <span className="font-medium text-slate-500">Apple Books</span> fallback
           </p>
         </div>
         <p className="flex items-center gap-1 text-xs text-slate-400">

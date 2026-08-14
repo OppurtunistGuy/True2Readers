@@ -12,6 +12,9 @@ import {
   Search,
   Sparkles,
   Zap,
+  Globe,
+  Shield,
+  Eye,
 } from 'lucide-react'
 import { SearchBar } from './search-bar'
 
@@ -69,6 +72,21 @@ const FEATURES = [
     icon: BookOpen,
     title: 'Reading List',
     desc: 'Save books to your list and come back anytime.',
+  },
+] as const
+
+const TRUST_ITEMS = [
+  {
+    icon: Globe,
+    text: '100% real data from Google Books & Apple Books',
+  },
+  {
+    icon: Shield,
+    text: 'No fabricated content or fake reviews',
+  },
+  {
+    icon: Eye,
+    text: 'Transparent source attribution on every result',
   },
 ] as const
 
@@ -158,6 +176,7 @@ export function HomeView({
               placeholder="Search for a book title or topic…"
               inputRef={searchInputRef}
               showHint
+              recentSearches={recentSearches}
             />
           </motion.div>
 
@@ -328,6 +347,51 @@ export function HomeView({
                   {feat.title}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">{feat.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust / transparency bar */}
+      <section
+        className="border-t border-slate-200/50 bg-slate-50/50"
+        aria-labelledby="trust-heading"
+      >
+        <div className="mx-auto w-full max-w-5xl px-4 py-12 md:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <h2
+              id="trust-heading"
+              className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
+            >
+              Real data, always
+            </h2>
+            <p className="mt-2 text-center text-sm text-slate-500">
+              Zero fabrication — every result comes from a real source
+            </p>
+          </motion.div>
+
+          <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            {TRUST_ITEMS.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-20px' }}
+                transition={{
+                  duration: 0.3,
+                  delay: i * 0.06,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="flex items-center gap-2 text-sm text-slate-600"
+              >
+                <item.icon className="size-4 text-blue-500" strokeWidth={2} />
+                <span>{item.text}</span>
               </motion.div>
             ))}
           </div>

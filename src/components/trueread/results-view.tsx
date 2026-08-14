@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertCircle,
   ArrowLeft,
@@ -9,6 +10,9 @@ import {
   Info,
   LayoutList,
   Library,
+  SearchX,
+  Filter,
+  SlidersHorizontal,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -81,6 +85,21 @@ function deriveDecades(books: Book[]): { decade: number; label: string; count: n
   return Array.from(counts.entries())
     .map(([decade, count]) => ({ decade, label: `${decade}s`, count }))
     .sort((a, b) => a.decade - b.decade)
+}
+
+/** Animated number counter. */
+function AnimatedCount({ value }: { value: number }) {
+  return (
+    <motion.span
+      key={value}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="inline-block font-medium text-slate-700"
+    >
+      {value.toLocaleString()}
+    </motion.span>
+  )
 }
 
 /**
@@ -186,7 +205,12 @@ export function ResultsView({
       </div>
 
       {/* Results header */}
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+      >
         <div className="min-w-0">
           <h2
             className="truncate text-2xl font-bold text-slate-900"
@@ -196,9 +220,7 @@ export function ResultsView({
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             About{' '}
-            <span className="font-medium text-slate-700">
-              {totalItems.toLocaleString()}
-            </span>{' '}
+            <AnimatedCount value={totalItems} />{' '}
             results from {sourceLabel}
           </p>
         </div>
@@ -254,12 +276,17 @@ export function ResultsView({
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Transparent source banner — shown only when results came from the
           Apple Books fallback (Google Books environmentally unavailable). */}
       {source === 'apple' && (
-        <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600">
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600"
+        >
           <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
           <p>
             <span className="font-medium text-slate-800">
@@ -270,12 +297,18 @@ export function ResultsView({
             instead — covers and metadata are real; book previews will show
             &ldquo;No preview available.&rdquo;
           </p>
-        </div>
+        </motion.div>
       )}
 
       {/* Decade jump-bar — client-side filter derived from the current page. */}
       {decades.length > 1 && !error && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="mt-4 flex flex-wrap items-center gap-2"
+        >
+          <Filter className="size-3.5 text-slate-400" strokeWidth={2} />
           <span className="text-xs font-medium text-slate-500">Year:</span>
           <button
             type="button"
@@ -308,7 +341,7 @@ export function ResultsView({
               <span className="ml-1 opacity-60">{d.count}</span>
             </button>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Body */}
@@ -466,15 +499,20 @@ export function ResultsView({
 
 function EmptyState({ query }: { query: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-slate-200/70 trueread-shadow-card">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-slate-200/70 trueread-shadow-card"
+    >
       <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-        <Library className="size-7" strokeWidth={1.75} />
+        <SearchX className="size-7" strokeWidth={1.75} />
       </span>
       <h3 className="text-lg font-semibold text-slate-900">
         No books found for &ldquo;{query}&rdquo;
       </h3>
       <p className="text-sm text-slate-500">Try a different title or topic.</p>
-    </div>
+    </motion.div>
   )
 }
 

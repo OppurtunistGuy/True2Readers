@@ -298,3 +298,38 @@ Stage Summary:
 - 6 new features + comprehensive styling polish added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
 - Screenshots: screenshots/round3-01-home … round3-06-mobile-detail.png.
 - Continuous review loop armed (cron 323008, every 15 min).
+
+---
+Task ID: 7 (webDevReview round 2)
+Agent: coordinator (cron webDevReview)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (Phase 1 complete and stable, round 1 features added). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser): home, genre to grid, genre to card to detail, back navigation, author link search, autocomplete, bookmark toast, scroll-to-top. No console errors.
+- NEW features (all real-data, no fabrication):
+  1. Search autocomplete dropdown: on the hero search, when the user focuses or types, a dropdown appears with 8 filtered suggestions from a curated list of popular titles/genres plus recent searches. Shows type labels (Title/Genre/Recent). Keyboard navigation. Auto-triggers search on selection.
+  2. Clickable author links: in detail view, each author is rendered as a clickable pill that triggers author:name search.
+  3. Toast notifications: added shadcn/ui toast for bookmark add/remove, reading list clear.
+  4. Animated top progress bar: fixed-position 3px bar during search loading. Two-phase animation with shimmer overlay.
+  5. Floating scroll-to-top button: appears after scrolling 400px. Smooth scroll to top on click.
+  6. Explore related topics section: in detail view below About this book, shows categories as searchable list items.
+  7. Result count animation: the total count in the results header animates with fade plus slide motion.
+  8. Real data always trust section: new section on home with three trust items.
+  9. Improved empty state with SearchX icon.
+  10. Filter icon next to Year label in decade jump-bar.
+  11. Meta row icons: Clock next to year, BookOpen next to page count in detail.
+  12. Globe icon next to Source attribution in detail.
+  13. Show more/less uses ChevronDown/ChevronUp icons.
+  14. Footer updated with Apple Books fallback mention.
+  15. Book card hover View badge appears on cover hover.
+  16. CSS utilities: progress bar shimmer, card hover lift, chip focus.
+- Files created: search-autocomplete.tsx, search-progress.tsx, scroll-to-top.tsx, author-links.tsx, explore-related.tsx.
+- Files modified: page.tsx, globals.css, search-bar.tsx, home-view.tsx, detail-view.tsx, results-view.tsx, book-card.tsx, footer.tsx.
+- Lint: PASS (0 errors, 0 warnings). Console errors: none.
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 16 improvements (8 new features + 8 UI/styling polish) added within the single-page loop.
+- Screenshots: screenshots/round4-final-home.png, round4-final-results.png, round4-final-detail.png.
+- Continuous review loop armed (cron 323008, every 15 min).

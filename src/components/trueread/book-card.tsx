@@ -113,7 +113,7 @@ export function BookCard({
         aria-label={`Open details for ${book.title} by ${authorsText}`}
         className="flex w-full flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 rounded-xl"
       >
-        <div className="relative overflow-hidden rounded-xl transition-shadow duration-300 group-hover:shadow-xl group-focus-visible:shadow-xl">
+        <div className="relative overflow-hidden rounded-xl transition-all duration-300 group-hover:shadow-xl group-focus-visible:shadow-xl ring-1 ring-slate-200/50 group-hover:ring-blue-200/60">
           <CoverImage book={book} className="w-full" />
           {/* Hover overlay with quick-peek text */}
           {shortDesc && (
@@ -123,6 +123,11 @@ export function BookCard({
               </p>
             </div>
           )}
+          {/* Hover "View" badge */}
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:opacity-100">
+            <Eye className="size-3" strokeWidth={2.25} />
+            View
+          </div>
         </div>
         <div className="flex min-w-0 flex-col gap-0.5">
           <h3

@@ -9,6 +9,9 @@ import { ResultsView } from '@/components/trueread/results-view'
 import { DetailView } from '@/components/trueread/detail-view'
 import { Footer } from '@/components/trueread/footer'
 import { ReadingList } from '@/components/trueread/reading-list'
+import { SearchProgress } from '@/components/trueread/search-progress'
+import { ScrollToTop } from '@/components/trueread/scroll-to-top'
+import { useToast } from '@/hooks/use-toast'
 import type { Book, BookSource, SearchResponse } from '@/components/trueread/types'
 
 const MAX_RESULTS = 24
@@ -52,6 +55,8 @@ export default function Page() {
   const sourceRef = React.useRef<BookSource>('google')
   // Ref to the home hero search input — used by the `/` keyboard shortcut.
   const homeSearchRef = React.useRef<HTMLInputElement>(null)
+  // Toast notifications
+  const { toast } = useToast()
 
   // Derived: set of bookmarked book IDs for quick lookup
   const bookmarkedIds = React.useMemo(
@@ -120,20 +125,44 @@ export default function Page() {
     setReadingList((prev) => {
       const idx = prev.findIndex((b) => b.id === book.id)
       if (idx >= 0) {
+        toast({
+          title: 'Removed from reading list',
+          description: `${book.title}`,
+          duration: 2000,
+        })
         return prev.filter((b) => b.id !== book.id)
       }
+      toast({
+        title: 'Added to reading list',
+        description: `${book.title}`,
+        duration: 2000,
+      })
       // Add to end, cap at MAX_READING_LIST
       return [...prev, book].slice(-MAX_READING_LIST)
     })
-  }, [])
+  }, [toast])
 
   const clearReadingList = React.useCallback(() => {
     setReadingList([])
-  }, [])
+    toast({
+      title: 'Reading list cleared',
+      duration: 2000,
+    })
+  }, [toast])
 
   const removeReadingListItem = React.useCallback((id: string) => {
-    setReadingList((prev) => prev.filter((b) => b.id !== id))
-  }, [])
+    setReadingList((prev) => {
+      const book = prev.find((b) => b.id === id)
+      if (book) {
+        toast({
+          title: 'Removed from reading list',
+          description: book.title,
+          duration: 2000,
+        })
+      }
+      return prev.filter((b) => b.id !== id)
+    })
+  }, [toast])
 
   const handleSearch = React.useCallback(
     async (q: string, page = 1) => {
@@ -257,6 +286,9 @@ export default function Page() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900">
+      {/* Search progress bar */}
+      <SearchProgress isLoading={isLoading} />
+
       {/* Global sticky header — glass morphism */}
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/70 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
@@ -345,6 +377,9 @@ export default function Page() {
 
       {/* Sticky footer — pushed down naturally by flex-col + mt-auto */}
       <Footer className="mt-auto" />
+
+      {/* Scroll to top button */}
+      <ScrollToTop />
 
       {/* Reading list slide-out panel */}
       <ReadingList
