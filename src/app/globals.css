@@ -184,11 +184,16 @@
   /* Drop cap for the first letter of the preview/description */
   .trueread-dropcap::first-letter {
     float: left;
-    font-size: 3.1rem;
-    line-height: 0.8;
+    font-size: 3.2rem;
+    line-height: 0.78;
     font-weight: 700;
-    margin: 0.15rem 0.5rem 0 0;
+    margin: 0.1rem 0.6rem 0 0;
+    padding: 0.05rem 0.15rem;
     color: oklch(0.55 0.18 256);
+    background: linear-gradient(135deg, oklch(0.55 0.18 256), oklch(0.48 0.15 250));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   /* Subtle floating animation for hero accents */
@@ -197,6 +202,22 @@
   }
   .trueread-float-slower {
     animation: trueread-float 10s ease-in-out infinite;
+  }
+
+  /* Pulse glow for interactive elements */
+  .trueread-glow {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    animation: trueread-glow 2s ease-in-out infinite;
+  }
+
+  /* Slide-in from right for reading list panel */
+  .trueread-slide-in-right {
+    animation: trueread-slide-in-right 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Badge bounce for count updates */
+  .trueread-badge-bounce {
+    animation: trueread-badge-bounce 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
@@ -216,10 +237,44 @@
   }
 }
 
+@keyframes trueread-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px rgba(37, 99, 235, 0.15);
+  }
+}
+
+@keyframes trueread-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes trueread-badge-bounce {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .trueread-shimmer::after,
   .trueread-float-slow,
-  .trueread-float-slower {
+  .trueread-float-slower,
+  .trueread-glow,
+  .trueread-slide-in-right,
+  .trueread-badge-bounce {
     animation: none;
   }
 }

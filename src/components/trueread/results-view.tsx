@@ -5,7 +5,9 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Grid3X3,
   Info,
+  LayoutList,
   Library,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
@@ -36,9 +38,14 @@ export interface ResultsViewProps {
   onSelectBook: (book: Book) => void
   onPageChange: (page: number) => void
   onBack: () => void
+  /** Reading list membership for bookmark badges. */
+  bookmarkedIds?: Set<string>
+  /** Toggle bookmark on a book. */
+  onToggleBookmark?: (book: Book) => void
 }
 
 type SortKey = 'relevance' | 'newest' | 'oldest'
+type ViewMode = 'grid' | 'list'
 
 const SKELETON_COUNT = 12
 
@@ -94,10 +101,13 @@ export function ResultsView({
   onSelectBook,
   onPageChange,
   onBack,
+  bookmarkedIds,
+  onToggleBookmark,
 }: ResultsViewProps) {
   const [sort, setSort] = React.useState<SortKey>('relevance')
   const [searchValue, setSearchValue] = React.useState('')
   const [activeDecade, setActiveDecade] = React.useState<number | null>(null)
+  const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
 
@@ -106,6 +116,7 @@ export function ResultsView({
     setSort('relevance')
     setSearchValue('')
     setActiveDecade(null)
+    setViewMode('grid')
   }, [query])
 
   // Client-side sort of the current page's results.
@@ -210,6 +221,38 @@ export function ResultsView({
               <SelectItem value="oldest">Oldest</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* View toggle */}
+          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={cn(
+                'inline-flex size-8 items-center justify-center rounded-md transition-all',
+                viewMode === 'grid'
+                  ? 'bg-blue-50 text-blue-600 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600',
+              )}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
+            >
+              <Grid3X3 className="size-4" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'inline-flex size-8 items-center justify-center rounded-md transition-all',
+                viewMode === 'list'
+                  ? 'bg-blue-50 text-blue-600 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600',
+              )}
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
+            >
+              <LayoutList className="size-4" strokeWidth={2} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -225,7 +268,7 @@ export function ResultsView({
             from this environment (shared-IP quota). Showing real results from{' '}
             <span className="font-medium text-blue-700">Apple Books</span>{' '}
             instead — covers and metadata are real; book previews will show
-            “No preview available.”
+            &ldquo;No preview available.&rdquo;
           </p>
         </div>
       )}
@@ -277,19 +320,33 @@ export function ResultsView({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : isLoading && results.length === 0 ? (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className={cn(
+            viewMode === 'grid'
+              ? 'grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+              : 'flex flex-col gap-3',
+          )}>
             {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-              <div key={i} className="flex flex-col gap-3">
-                <Skeleton className="trueread-shimmer aspect-[2/3] w-full rounded-lg" />
-                <Skeleton className="trueread-shimmer h-4 w-5/6" />
-                <Skeleton className="trueread-shimmer h-3 w-3/4" />
-                <Skeleton className="trueread-shimmer h-3 w-1/3" />
-              </div>
+              viewMode === 'grid' ? (
+                <div key={i} className="flex flex-col gap-3">
+                  <Skeleton className="trueread-shimmer aspect-[2/3] w-full rounded-lg" />
+                  <Skeleton className="trueread-shimmer h-4 w-5/6" />
+                  <Skeleton className="trueread-shimmer h-3 w-3/4" />
+                  <Skeleton className="trueread-shimmer h-3 w-1/3" />
+                </div>
+              ) : (
+                <div key={i} className="flex items-center gap-4 rounded-xl p-3">
+                  <Skeleton className="trueread-shimmer size-16 rounded-lg shrink-0" />
+                  <div className="flex-1 flex flex-col gap-2">
+                    <Skeleton className="trueread-shimmer h-4 w-2/3" />
+                    <Skeleton className="trueread-shimmer h-3 w-1/2" />
+                  </div>
+                </div>
+              )
             ))}
           </div>
         ) : visibleResults.length === 0 ? (
           <EmptyState query={query} />
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div
             className={cn(
               'grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
@@ -302,6 +359,28 @@ export function ResultsView({
                 book={book}
                 onSelect={onSelectBook}
                 index={i}
+                variant="grid"
+                isBookmarked={bookmarkedIds?.has(book.id) ?? false}
+                onToggleBookmark={onToggleBookmark}
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'flex flex-col gap-2 rounded-2xl bg-white p-2 ring-1 ring-slate-200/70 trueread-shadow-card',
+              isLoading && 'opacity-60 transition-opacity',
+            )}
+          >
+            {visibleResults.map((book, i) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                onSelect={onSelectBook}
+                index={i}
+                variant="list"
+                isBookmarked={bookmarkedIds?.has(book.id) ?? false}
+                onToggleBookmark={onToggleBookmark}
               />
             ))}
           </div>
@@ -357,7 +436,7 @@ export function ResultsView({
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={`Go to page ${p}`}
                 className={cn(
-                  'inline-flex h-9 min-w-9 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+                  'inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-3 text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95',
                   isActive
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900',

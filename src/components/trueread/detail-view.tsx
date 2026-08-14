@@ -9,14 +9,19 @@ import {
   ExternalLink,
   Gauge,
   Info,
+  Link2,
   Quote,
+  Share2,
   Sparkles,
+  Check,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
 import { CoverImage } from './cover-image'
 import { AiBreakdown } from './ai-breakdown'
 import { SearchBar } from './search-bar'
+import { StarRating } from './star-rating'
+import { BookmarkButton } from './reading-list'
 import { getBreakdown } from './mock-ai'
 import { estimateReadingTime, getReaderFit } from './reading-insights'
 import { cn } from '@/lib/utils'
@@ -28,6 +33,10 @@ export interface DetailViewProps {
   backLabel?: string
   onBack?: () => void
   onSearch: (q: string) => void
+  /** Whether this book is in the reading list. */
+  isBookmarked?: boolean
+  /** Toggle bookmark. */
+  onToggleBookmark?: (book: Book) => void
 }
 
 /**
@@ -79,9 +88,12 @@ export function DetailView({
   backLabel = 'Back to results',
   onBack,
   onSearch,
+  isBookmarked = false,
+  onToggleBookmark,
 }: DetailViewProps) {
   const [searchValue, setSearchValue] = React.useState('')
   const [showFullDesc, setShowFullDesc] = React.useState(false)
+  const [copied, setCopied] = React.useState(false)
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
 
@@ -112,6 +124,18 @@ export function DetailView({
   const handleCategoryClick = (cat: string) => {
     onSearch(cat)
   }
+
+  // Share: copy a shareable text to clipboard
+  const handleShare = React.useCallback(async () => {
+    const text = `${book.title} by ${authorsText}${book.year ? ` (${book.year})` : ''} — Found via TrueRead`
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API not available — no-op
+    }
+  }, [book.title, authorsText, book.year])
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
@@ -160,19 +184,33 @@ export function DetailView({
         <div className="grid gap-8 md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr_300px]">
           {/* Left: cover */}
           <div className="mx-auto w-44 md:mx-0 md:w-full">
-            <CoverImage
-              book={book}
-              sizes="(max-width: 768px) 176px, 220px"
-              className="w-full"
-            />
-            {book.rating != null && book.rating > 0 && (
-              <p className="mt-3 text-center text-xs text-slate-500">
-                <span className="font-medium text-slate-700">
-                  ★ {book.rating.toFixed(1)}
-                </span>{' '}
-                {source === 'apple' ? 'Apple' : 'Google'} rating
-              </p>
-            )}
+            <div className="relative">
+              <CoverImage
+                book={book}
+                sizes="(max-width: 768px) 176px, 220px"
+                className="w-full"
+              />
+              {/* Bookmark button on cover */}
+              {onToggleBookmark && (
+                <div className="absolute right-2 top-2">
+                  <BookmarkButton
+                    isBookmarked={isBookmarked}
+                    onClick={() => onToggleBookmark(book)}
+                    size="md"
+                    className="shadow-md backdrop-blur-sm"
+                  />
+                </div>
+              )}
+            </div>
+            {/* Star rating below cover */}
+            <div className="mt-3 flex flex-col items-center gap-1">
+              <StarRating
+                rating={book.rating}
+                size="lg"
+                showValue
+                label={source === 'apple' ? 'Apple' : 'Google'}
+              />
+            </div>
           </div>
 
           {/* Middle: meta + preview */}
@@ -220,6 +258,25 @@ export function DetailView({
                     </span>
                   </span>
                 )}
+                {/* Share button chip */}
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
+                  aria-label="Share this book"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="size-3.5 text-green-600" strokeWidth={2.25} />
+                      <span className="text-green-600">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="size-3.5" strokeWidth={2.25} />
+                      Share
+                    </>
+                  )}
+                </button>
               </div>
             )}
 
@@ -231,7 +288,7 @@ export function DetailView({
                     key={cat}
                     type="button"
                     onClick={() => handleCategoryClick(cat)}
-                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+                    className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
                     aria-label={`Search more books in ${cat}`}
                   >
                     {cat}

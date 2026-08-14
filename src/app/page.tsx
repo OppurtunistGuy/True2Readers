@@ -8,11 +8,14 @@ import { HomeView } from '@/components/trueread/home-view'
 import { ResultsView } from '@/components/trueread/results-view'
 import { DetailView } from '@/components/trueread/detail-view'
 import { Footer } from '@/components/trueread/footer'
+import { ReadingList } from '@/components/trueread/reading-list'
 import type { Book, BookSource, SearchResponse } from '@/components/trueread/types'
 
 const MAX_RESULTS = 24
 /** Max recent searches kept in-memory (session only — no persistence). */
 const MAX_RECENT = 6
+/** Max reading list books kept in-memory. */
+const MAX_READING_LIST = 30
 
 type View =
   | { name: 'home' }
@@ -40,12 +43,21 @@ export default function Page() {
   const [error, setError] = React.useState<string | null>(null)
   // Recent searches (in-memory, session-only). Most-recent-first, deduped.
   const [recentSearches, setRecentSearches] = React.useState<string[]>([])
+  // Reading list (in-memory, session-only). Order of addition.
+  const [readingList, setReadingList] = React.useState<Book[]>([])
+  const [readingListOpen, setReadingListOpen] = React.useState(false)
   const lastResultsRef = React.useRef<LastResults | null>(null)
   // Tracks the source of the most recent search so a card click (which only
   // receives a Book) can still carry the correct source into the detail view.
   const sourceRef = React.useRef<BookSource>('google')
   // Ref to the home hero search input — used by the `/` keyboard shortcut.
   const homeSearchRef = React.useRef<HTMLInputElement>(null)
+
+  // Derived: set of bookmarked book IDs for quick lookup
+  const bookmarkedIds = React.useMemo(
+    () => new Set(readingList.map((b) => b.id)),
+    [readingList],
+  )
 
   // Scroll to top on view changes (home↔results↔detail, including pagination).
   React.useEffect(() => {
@@ -75,9 +87,12 @@ export default function Page() {
         }
       }
 
-      // `Escape` navigates back.
+      // `Escape` navigates back (or closes reading list).
       if (e.key === 'Escape' && !isTyping) {
-        if (view.name === 'detail') {
+        if (readingListOpen) {
+          e.preventDefault()
+          setReadingListOpen(false)
+        } else if (view.name === 'detail') {
           e.preventDefault()
           handleBackFromDetail()
         } else if (view.name === 'results') {
@@ -88,7 +103,7 @@ export default function Page() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [view])
+  }, [view, readingListOpen])
 
   // Push a query onto the recent-searches list (deduped, most-recent-first).
   const pushRecent = React.useCallback((q: string) => {
@@ -98,6 +113,26 @@ export default function Page() {
       const without = prev.filter((x) => x.toLowerCase() !== trimmed.toLowerCase())
       return [trimmed, ...without].slice(0, MAX_RECENT)
     })
+  }, [])
+
+  // Toggle a book in/out of the reading list.
+  const toggleBookmark = React.useCallback((book: Book) => {
+    setReadingList((prev) => {
+      const idx = prev.findIndex((b) => b.id === book.id)
+      if (idx >= 0) {
+        return prev.filter((b) => b.id !== book.id)
+      }
+      // Add to end, cap at MAX_READING_LIST
+      return [...prev, book].slice(-MAX_READING_LIST)
+    })
+  }, [])
+
+  const clearReadingList = React.useCallback(() => {
+    setReadingList([])
+  }, [])
+
+  const removeReadingListItem = React.useCallback((id: string) => {
+    setReadingList((prev) => prev.filter((b) => b.id !== id))
   }, [])
 
   const handleSearch = React.useCallback(
@@ -222,16 +257,32 @@ export default function Page() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900">
-      {/* Global sticky header — minimal: logo + Google Books badge */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+      {/* Global sticky header — glass morphism */}
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/70 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
           <Logo size="md" onClick={handleLogoClick} />
-          <Badge
-            variant="outline"
-            className="hidden border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 sm:inline-flex"
-          >
-            Powered by Google Books API
-          </Badge>
+          <div className="flex items-center gap-3">
+            {/* Reading list badge in header */}
+            {readingList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setReadingListOpen(true)}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+                aria-label={`Reading list: ${readingList.length} books`}
+              >
+                <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
+                  {readingList.length}
+                </span>
+                Reading List
+              </button>
+            )}
+            <Badge
+              variant="outline"
+              className="hidden border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 md:inline-flex"
+            >
+              Powered by Google Books API
+            </Badge>
+          </div>
         </div>
       </header>
 
@@ -252,6 +303,7 @@ export default function Page() {
                 recentSearches={recentSearches}
                 onClearRecent={handleClearRecent}
                 searchInputRef={homeSearchRef}
+                readingListCount={readingList.length}
               />
             )}
 
@@ -269,6 +321,8 @@ export default function Page() {
                 onSelectBook={handleSelectBook}
                 onPageChange={(p) => handleSearch(view.query, p)}
                 onBack={handleBackFromResults}
+                bookmarkedIds={bookmarkedIds}
+                onToggleBookmark={toggleBookmark}
               />
             )}
 
@@ -281,6 +335,8 @@ export default function Page() {
                 }
                 onBack={handleBackFromDetail}
                 onSearch={(q) => handleSearch(q, 1)}
+                isBookmarked={bookmarkedIds.has(view.book.id)}
+                onToggleBookmark={toggleBookmark}
               />
             )}
           </motion.div>
@@ -289,6 +345,16 @@ export default function Page() {
 
       {/* Sticky footer — pushed down naturally by flex-col + mt-auto */}
       <Footer className="mt-auto" />
+
+      {/* Reading list slide-out panel */}
+      <ReadingList
+        books={readingList}
+        onRemove={removeReadingListItem}
+        onClear={clearReadingList}
+        onSelect={handleSelectBook}
+        isOpen={readingListOpen}
+        onToggle={() => setReadingListOpen((v) => !v)}
+      />
     </div>
   )
 }

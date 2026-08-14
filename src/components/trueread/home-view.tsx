@@ -7,9 +7,11 @@ import {
   BookOpen,
   ChevronRight,
   Clock3,
+  Layers,
   RotateCcw,
   Search,
   Sparkles,
+  Zap,
 } from 'lucide-react'
 import { SearchBar } from './search-bar'
 
@@ -21,6 +23,8 @@ export interface HomeViewProps {
   onClearRecent?: () => void
   /** Ref to forward to the hero search input (for the `/` shortcut). */
   searchInputRef?: React.Ref<HTMLInputElement>
+  /** Number of books in reading list — shown as a stat. */
+  readingListCount?: number
 }
 
 const SUGGESTIONS = [
@@ -50,6 +54,24 @@ const STEPS = [
   },
 ] as const
 
+const FEATURES = [
+  {
+    icon: Zap,
+    title: 'Instant Results',
+    desc: 'Real book data from Google Books & Apple Books — no fabrication.',
+  },
+  {
+    icon: Layers,
+    title: 'AI-Style Breakdown',
+    desc: 'Pacing, tone, dialogue & complexity at a glance.',
+  },
+  {
+    icon: BookOpen,
+    title: 'Reading List',
+    desc: 'Save books to your list and come back anytime.',
+  },
+] as const
+
 /**
  * Landing / hero view. Centered headline + hero SearchBar + suggestion
  * tags + recent searches + "How TrueRead works" 3-step section.
@@ -60,6 +82,7 @@ export function HomeView({
   recentSearches = [],
   onClearRecent,
   searchInputRef,
+  readingListCount = 0,
 }: HomeViewProps) {
   const [value, setValue] = React.useState('')
 
@@ -139,7 +162,12 @@ export function HomeView({
           </motion.div>
 
           {/* Suggestion tags */}
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center"
+          >
             <span className="text-sm text-slate-500">Try searching:</span>
             <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((tag) => (
@@ -147,20 +175,22 @@ export function HomeView({
                   key={tag}
                   type="button"
                   onClick={() => handleSuggestion(tag)}
-                  className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 transition-all hover:bg-blue-100 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
+                  className="group/tag rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-all hover:bg-blue-100 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
                 >
-                  {tag}
+                  <span className="transition-transform group-hover/tag:translate-x-0.5 inline-block">
+                    {tag}
+                  </span>
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
           {/* Recent searches (in-memory, session-only) */}
           {recentSearches.length > 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
+              transition={{ duration: 0.4, delay: 0.25 }}
               className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center"
             >
               <span className="inline-flex items-center gap-1 text-sm text-slate-500">
@@ -200,12 +230,22 @@ export function HomeView({
         className="mx-auto w-full max-w-5xl px-4 py-16 md:py-20"
         aria-labelledby="how-heading"
       >
-        <h2
-          id="how-heading"
-          className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
-          How TrueRead works
-        </h2>
+          <h2
+            id="how-heading"
+            className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
+          >
+            How TrueRead works
+          </h2>
+          <p className="mt-2 text-center text-sm text-slate-500">
+            Three steps to understand any book
+          </p>
+        </motion.div>
 
         <div className="mt-8 flex flex-col items-stretch gap-4 md:flex-row md:items-center">
           {STEPS.map((step, i) => (
@@ -221,11 +261,16 @@ export function HomeView({
                 }}
                 className="flex-1 rounded-2xl bg-white p-6 ring-1 ring-slate-200/70 trueread-shadow-card transition-shadow hover:shadow-md"
               >
-                <span className="inline-flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <step.icon className="size-6" strokeWidth={2} />
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <step.icon className="size-6" strokeWidth={2} />
+                  </span>
+                  <span className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                </div>
                 <h3 className="mt-4 text-lg font-semibold text-slate-900">
-                  <span className="text-blue-600">{i + 1}.</span> {step.title}
+                  {step.title}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">{step.desc}</p>
               </motion.div>
@@ -236,6 +281,56 @@ export function HomeView({
               )}
             </React.Fragment>
           ))}
+        </div>
+      </section>
+
+      {/* Feature highlights */}
+      <section
+        className="border-t border-slate-200/70 bg-white/50"
+        aria-labelledby="features-heading"
+      >
+        <div className="mx-auto w-full max-w-5xl px-4 py-16 md:py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <h2
+              id="features-heading"
+              className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
+            >
+              Why TrueRead
+            </h2>
+            <p className="mt-2 text-center text-sm text-slate-500">
+              Built for readers who want to decide fast
+            </p>
+          </motion.div>
+
+          <div className="mt-8 grid gap-6 sm:grid-cols-3">
+            {FEATURES.map((feat, i) => (
+              <motion.div
+                key={feat.title}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{
+                  duration: 0.4,
+                  delay: i * 0.08,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="rounded-2xl bg-white p-6 ring-1 ring-slate-200/70 trueread-shadow-card transition-shadow hover:shadow-md"
+              >
+                <span className="inline-flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <feat.icon className="size-5" strokeWidth={2.25} />
+                </span>
+                <h3 className="mt-4 text-base font-semibold text-slate-900">
+                  {feat.title}
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">{feat.desc}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
     </div>

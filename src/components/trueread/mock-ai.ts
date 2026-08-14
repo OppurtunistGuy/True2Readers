@@ -4,6 +4,7 @@ export interface Breakdown {
   pacing: { label: string; level: number }
   tone: { label: string; level: number }
   dialogue: { label: string; level: number }
+  complexity: { label: string; level: number }
 }
 
 const PACING_LABELS = ['Slow', 'Steady', 'Medium', 'Brisk', 'Fast'] as const
@@ -21,6 +22,13 @@ const DIALOGUE_LABELS = [
   'Medium-Low',
   'Medium',
   'High',
+] as const
+const COMPLEXITY_LABELS = [
+  'Accessible',
+  'Moderate',
+  'Intermediate',
+  'Advanced',
+  'Dense',
 ] as const
 
 // Curated level mapping for tone (1..5)
@@ -55,7 +63,7 @@ function hashId(id: string): number {
 /**
  * Deterministic mock "AI-style breakdown" for a book.
  *
- * Hashes `book.id` to pick pacing/tone/dialogue values. The same book.id
+ * Hashes `book.id` to pick pacing/tone/dialogue/complexity values. The same book.id
  * always yields the same breakdown. This is NOT a real AI call — it's a
  * stand-in so the UI has stable, varied mock data.
  */
@@ -65,6 +73,7 @@ export function getBreakdown(book: Book): Breakdown {
   const pacingIdx = h % PACING_LABELS.length // 0..4
   const toneIdx = (h >>> 3) % TONE_LABELS.length // 0..5
   const dialogueIdx = (h >>> 6) % DIALOGUE_LABELS.length // 0..4
+  const complexityIdx = (h >>> 9) % COMPLEXITY_LABELS.length // 0..4
 
   return {
     pacing: {
@@ -78,6 +87,10 @@ export function getBreakdown(book: Book): Breakdown {
     dialogue: {
       label: DIALOGUE_LABELS[dialogueIdx],
       level: dialogueIdx + 1, // 1..5
+    },
+    complexity: {
+      label: COMPLEXITY_LABELS[complexityIdx],
+      level: complexityIdx + 1, // 1..5
     },
   }
 }

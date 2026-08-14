@@ -18,6 +18,7 @@ export interface CoverImageProps {
  * - If `book.cover` exists: render next/image (unoptimized so external
  *   Google Books URLs work without domain config), with referrerPolicy
  *   "no-referrer", aspect ratio [2/3], objectFit cover, lazy-loaded.
+ *   On hover, the image subtly zooms in.
  * - If no cover: render a navy gradient placeholder with the book's title
  *   (truncated) and a BookMarked icon.
  */
@@ -41,8 +42,10 @@ export function CoverImage({ book, className, sizes }: CoverImageProps) {
           referrerPolicy="no-referrer"
           unoptimized
           loading="lazy"
-          className="transition-transform duration-300"
+          className="transition-transform duration-500 group-hover:scale-105"
         />
+        {/* Subtle gradient overlay at bottom for depth */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900/10 to-transparent" />
       </div>
     )
   }
