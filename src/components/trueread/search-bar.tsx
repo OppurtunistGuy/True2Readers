@@ -140,7 +140,7 @@ export const SearchBar = React.forwardRef<HTMLFormElement, SearchBarProps>(
             type="submit"
             disabled={isLoading || value.trim().length === 0}
             className={cn(
-              'h-12 md:h-14 shrink-0 rounded-xl bg-blue-600 px-5 md:px-7 text-sm md:text-base font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]',
+              'trueread-cta-shine h-12 md:h-14 shrink-0 rounded-xl bg-blue-600 px-5 md:px-7 text-sm md:text-base font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]',
               'focus-visible:ring-blue-500 focus-visible:ring-offset-2',
             )}
             aria-label="Search"

@@ -275,7 +275,8 @@
   .trueread-glow,
   .trueread-slide-in-right,
   .trueread-badge-bounce,
-  .trueread-hero-mesh {
+  .trueread-hero-mesh,
+  .trueread-cta-shine:hover::before {
     animation: none;
   }
 }
@@ -375,6 +376,90 @@
   }
   75% {
     background-position: 25% 75%;
+  }
+}
+
+/* Primary CTA shine — a subtle animated gradient border that traces around
+   the button on hover. Locked to the blue palette (no indigo/purple). The
+   element needs `position: relative` and an overflow-hidden wrapper for the
+   pseudo-element to stay clipped. Apply to solid blue buttons. */
+@layer utilities {
+  .trueread-cta-shine {
+    position: relative;
+    isolation: isolate;
+  }
+  .trueread-cta-shine::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.6) 35%,
+      rgba(255, 255, 255, 0.9) 50%,
+      rgba(255, 255, 255, 0.6) 65%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    background-position: 200% 0;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .trueread-cta-shine:hover::before {
+    opacity: 1;
+    animation: trueread-cta-shine-sweep 1.4s ease-in-out infinite;
+  }
+
+  /* Ambient glow behind book covers — soft blue radial that lifts the cover
+     off the page. Apply to the cover's parent container (position: relative). */
+  .trueread-cover-glow::after {
+    content: '';
+    position: absolute;
+    inset: -8% -8% -12% -8%;
+    background: radial-gradient(
+      60% 60% at 50% 40%,
+      rgba(37, 99, 235, 0.18) 0%,
+      rgba(37, 99, 235, 0.08) 40%,
+      transparent 70%
+    );
+    filter: blur(8px);
+    z-index: -1;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .trueread-cover-glow:hover::after {
+    background: radial-gradient(
+      60% 60% at 50% 40%,
+      rgba(37, 99, 235, 0.28) 0%,
+      rgba(37, 99, 235, 0.12) 40%,
+      transparent 70%
+    );
+  }
+
+  /* Headings — balanced text wrapping for cleaner multi-line titles. */
+  .trueread-heading-balance {
+    text-wrap: balance;
+  }
+  .trueread-heading-pretty {
+    text-wrap: pretty;
+  }
+}
+
+@keyframes trueread-cta-shine-sweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 

@@ -15,6 +15,7 @@ import {
   GitCompare,
   X,
   User,
+  BookOpen,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -55,10 +56,41 @@ export interface ResultsViewProps {
 
 type SortKey = 'relevance' | 'newest' | 'oldest'
 type ViewMode = 'grid' | 'list'
+/** Book-length filter options — uses the REAL pageCount. */
+type LengthFilter = 'all' | 'short' | 'medium' | 'long'
 
 const SKELETON_COUNT = 12
 /** Max books that can be selected for comparison. */
 const MAX_COMPARE = 3
+
+/** Length filter options with thresholds (in pages). */
+const LENGTH_FILTERS: {
+  value: LengthFilter
+  label: string
+  /** Predicate over the real pageCount. */
+  match: (pages: number | null | undefined) => boolean
+}[] = [
+  {
+    value: 'all',
+    label: 'Any length',
+    match: () => true,
+  },
+  {
+    value: 'short',
+    label: 'Short (<300p)',
+    match: (p) => p != null && p > 0 && p < 300,
+  },
+  {
+    value: 'medium',
+    label: 'Medium (300–600p)',
+    match: (p) => p != null && p >= 300 && p <= 600,
+  },
+  {
+    value: 'long',
+    label: 'Long (>600p)',
+    match: (p) => p != null && p > 600,
+  },
+]
 
 /** Build a sliding window of visible page numbers, capped at `maxVisible`. */
 function pageWindow(current: number, total: number, maxVisible = 5): number[] {
@@ -143,6 +175,7 @@ export function ResultsView({
   const [activeDecade, setActiveDecade] = React.useState<number | null>(null)
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
   const [minRating, setMinRating] = React.useState<number>(0)
+  const [lengthFilter, setLengthFilter] = React.useState<LengthFilter>('all')
   const [compareMode, setCompareMode] = React.useState(false)
   const [compareSelected, setCompareSelected] = React.useState<Book[]>([])
   const [compareOpen, setCompareOpen] = React.useState(false)
@@ -164,6 +197,7 @@ export function ResultsView({
     setActiveDecade(null)
     setViewMode('grid')
     setMinRating(0)
+    setLengthFilter('all')
     setCompareMode(false)
     setCompareSelected([])
     setFocusedIndex(-1)
@@ -191,8 +225,11 @@ export function ResultsView({
     [sortedResults],
   )
 
-  // Apply the decade + rating filters on top of the sorted list (client-side only).
+  // Apply the decade + rating + length filters on top of the sorted list (client-side only).
   const visibleResults = React.useMemo(() => {
+    const lengthPredicate =
+      LENGTH_FILTERS.find((f) => f.value === lengthFilter)?.match ??
+      (() => true)
     return sortedResults.filter((b) => {
       // Decade filter
       if (activeDecade != null) {
@@ -204,14 +241,24 @@ export function ResultsView({
       if (minRating > 0) {
         if (b.rating == null || !Number.isFinite(b.rating) || b.rating < minRating) return false
       }
+      // Length filter — uses the real pageCount.
+      if (!lengthPredicate(b.pageCount)) return false
       return true
     })
-  }, [sortedResults, activeDecade, minRating])
+  }, [sortedResults, activeDecade, minRating, lengthFilter])
 
   // Reset focused index whenever the visible results change (filter/sort/page).
   React.useEffect(() => {
     setFocusedIndex(-1)
-  }, [visibleResults, activeDecade, minRating, sort, page])
+  }, [visibleResults, activeDecade, minRating, lengthFilter, sort, page])
+
+  // Whether the length filter should be shown — only if at least one book on
+  // the page has a real pageCount. Hides the row entirely for Apple Books
+  // fallback pages where no books have page counts (no fabrication).
+  const showLengthFilter = React.useMemo(
+    () => sortedResults.some((b) => b.pageCount != null && b.pageCount > 0),
+    [sortedResults],
+  )
 
   // Arrow-key navigation between cards. Detects the current grid column
   // count from the viewport width (matches the Tailwind grid breakpoints).
@@ -498,8 +545,8 @@ export function ResultsView({
         )}
       </AnimatePresence>
 
-      {/* Decade + rating filters — client-side filters derived from the current page. */}
-      {(decades.length > 1 || minRating > 0 || sortedResults.some((b) => b.rating != null && b.rating > 0)) && !error && (
+      {/* Decade + rating + length filters — client-side filters derived from the current page. */}
+      {(decades.length > 1 || minRating > 0 || sortedResults.some((b) => b.rating != null && b.rating > 0) || showLengthFilter) && !error && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -565,6 +612,33 @@ export function ResultsView({
                 >
                   {rf.value > 0 && <Star className="size-3 fill-current" strokeWidth={0} />}
                   {rf.label}
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Length filter — only shown if some books have real pageCount.
+              Filters by Short / Medium / Long using the real page count. */}
+          {showLengthFilter && (
+            <>
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+                <BookOpen className="size-3" strokeWidth={2} />
+                Length:
+              </span>
+              {LENGTH_FILTERS.map((lf) => (
+                <button
+                  key={lf.value}
+                  type="button"
+                  onClick={() => setLengthFilter(lf.value)}
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-xs font-medium transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50',
+                    lengthFilter === lf.value
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+                  )}
+                  aria-pressed={lengthFilter === lf.value}
+                >
+                  {lf.label}
                 </button>
               ))}
             </>
@@ -666,20 +740,29 @@ export function ResultsView({
           !isLoading &&
           visibleResults.length === 0 &&
           sortedResults.length > 0 &&
-          (activeDecade != null || minRating > 0) && (
+          (activeDecade != null || minRating > 0 || lengthFilter !== 'all') && (
             <div className="mt-6 flex flex-col items-center gap-2 rounded-xl bg-white px-6 py-8 text-center ring-1 ring-slate-200/70">
               <p className="text-sm text-slate-500">
-                {activeDecade != null && minRating > 0
-                  ? `No books from the ${activeDecade}s with ${minRating}+ stars on this page.`
-                  : activeDecade != null
-                    ? `No books from the ${activeDecade}s on this page.`
-                    : `No books with ${minRating}+ stars on this page.`}
+                {activeDecade != null && minRating > 0 && lengthFilter !== 'all'
+                  ? `No books from the ${activeDecade}s with ${minRating}+ stars and ${LENGTH_FILTERS.find((f) => f.value === lengthFilter)?.label.toLowerCase()} on this page.`
+                  : activeDecade != null && lengthFilter !== 'all'
+                    ? `No books from the ${activeDecade}s with ${LENGTH_FILTERS.find((f) => f.value === lengthFilter)?.label.toLowerCase()} on this page.`
+                    : minRating > 0 && lengthFilter !== 'all'
+                      ? `No ${LENGTH_FILTERS.find((f) => f.value === lengthFilter)?.label.toLowerCase()} books with ${minRating}+ stars on this page.`
+                      : lengthFilter !== 'all'
+                        ? `No ${LENGTH_FILTERS.find((f) => f.value === lengthFilter)?.label.toLowerCase()} books on this page.`
+                        : activeDecade != null && minRating > 0
+                          ? `No books from the ${activeDecade}s with ${minRating}+ stars on this page.`
+                          : activeDecade != null
+                            ? `No books from the ${activeDecade}s on this page.`
+                            : `No books with ${minRating}+ stars on this page.`}
               </p>
               <button
                 type="button"
                 onClick={() => {
                   setActiveDecade(null)
                   setMinRating(0)
+                  setLengthFilter('all')
                 }}
                 className="text-sm font-medium text-blue-600 hover:underline"
               >

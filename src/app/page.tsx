@@ -27,6 +27,8 @@ const MAX_RECENTLY_VIEWED = 8
 const LS_KEY_RECENT = 'trueread:recent:v1'
 const LS_KEY_LIST = 'trueread:reading-list:v1'
 const LS_KEY_RECENTLY_VIEWED = 'trueread:recently-viewed:v1'
+/** "Mark as read" records — keyed by book id, value is an ISO timestamp. */
+const LS_KEY_READ_BOOKS = 'trueread:read-books:v1'
 
 type View =
   | { name: 'home' }
@@ -69,6 +71,14 @@ export default function Page() {
     LS_KEY_RECENTLY_VIEWED,
     [],
   )
+  // "Mark as read" records — a map of book id → ISO timestamp of when the
+  // user marked the book as read. Persisted to localStorage so the user's
+  // reading history survives reloads. Used by the reading-list panel
+  // (filter + visual badge) and the detail view (mark-as-read button).
+  const [readBooks, setReadBooks] = useLocalStorage<Record<string, string>>(
+    LS_KEY_READ_BOOKS,
+    {},
+  )
   const [readingListOpen, setReadingListOpen] = React.useState(false)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = React.useState(false)
   const lastResultsRef = React.useRef<LastResults | null>(null)
@@ -84,6 +94,11 @@ export default function Page() {
   const bookmarkedIds = React.useMemo(
     () => new Set(readingList.map((b) => b.id)),
     [readingList],
+  )
+  // Derived: set of "read" book IDs for quick lookup
+  const readIds = React.useMemo(
+    () => new Set(Object.keys(readBooks)),
+    [readBooks],
   )
 
   // Scroll to top on view changes (home↔results↔detail, including pagination).
@@ -187,6 +202,33 @@ export default function Page() {
       duration: 2000,
     })
   }, [toast])
+
+  // Toggle a book's "read" status. Records the timestamp when marked as read;
+  // removes the record when un-marked. Persisted to localStorage so the
+  // user's reading history survives reloads.
+  const toggleRead = React.useCallback(
+    (book: Book) => {
+      setReadBooks((prev) => {
+        if (prev[book.id]) {
+          toast({
+            title: 'Marked as not read',
+            description: book.title,
+            duration: 2000,
+          })
+          const next = { ...prev }
+          delete next[book.id]
+          return next
+        }
+        toast({
+          title: 'Marked as read',
+          description: book.title,
+          duration: 2000,
+        })
+        return { ...prev, [book.id]: new Date().toISOString() }
+      })
+    },
+    [setReadBooks, toast],
+  )
 
   const removeReadingListItem = React.useCallback((id: string) => {
     setReadingList((prev) => {
@@ -443,6 +485,8 @@ export default function Page() {
                 onSearch={(q) => handleSearch(q, 1)}
                 isBookmarked={bookmarkedIds.has(view.book.id)}
                 onToggleBookmark={toggleBookmark}
+                isRead={readIds.has(view.book.id)}
+                onToggleRead={toggleRead}
                 onToast={toast}
                 onSelectBook={handleSelectBook}
               />
@@ -466,6 +510,8 @@ export default function Page() {
         isOpen={readingListOpen}
         onToggle={() => setReadingListOpen((v) => !v)}
         onToast={toast}
+        readBooks={readBooks}
+        onToggleRead={toggleRead}
       />
 
       {/* Keyboard shortcuts help overlay */}

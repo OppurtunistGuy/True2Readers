@@ -185,3 +185,100 @@ export function getBookAge(
   }
   return { years, label: `Published ${years} years ago` }
 }
+
+/**
+ * Reading difficulty — derived from REAL description/preview text.
+ *
+ * Pure local text analysis: tokenizes the description, computes the average
+ * word length and the average sentence length, then maps both to a 1-5
+ * difficulty score. Lower = easier, higher = harder. Returns null when
+ * there isn't enough text to compute a meaningful score.
+ *
+ * Heuristics (well-known readability approximations):
+ *   - Longer average word length → harder vocabulary.
+ *   - Longer average sentence length → more complex syntax.
+ *
+ * The label and "kind" (used for the chip color) are derived from the
+ * score, not the inputs — so the same score always produces the same label.
+ *
+ * Examples (approximate):
+ *   "See spot run. See spot sit."            → 1 ("Easy")
+ *   "Atomic Habits helps you build..."        → 2 ("Accessible")
+ *   "The novel explores the existential..."   → 3 ("Moderate")
+ *   "...hermeneutic phenomenology reifies..." → 5 ("Dense")
+ */
+export interface ReadingDifficulty {
+  /** 1 (easy) to 5 (dense). */
+  score: number
+  /** Human label, e.g. "Moderate". */
+  label: string
+  /** Short vibe for styling. */
+  kind: 'easy' | 'accessible' | 'moderate' | 'challenging' | 'dense'
+  /** Average word length (chars). */
+  avgWordLength: number
+  /** Average sentence length (words). */
+  avgSentenceLength: number
+}
+
+const DIFFICULTY_LABELS: Record<ReadingDifficulty['kind'], string> = {
+  easy: 'Easy',
+  accessible: 'Accessible',
+  moderate: 'Moderate',
+  challenging: 'Challenging',
+  dense: 'Dense',
+}
+
+export function getReadingDifficulty(
+  text: string | null | undefined,
+): ReadingDifficulty | null {
+  if (!text || text.length < 80) return null
+  // Split into sentences on . ! ? followed by whitespace/end. Filter empties.
+  const sentences = text
+    .split(/[.!?]+(?:\s|$)/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  if (sentences.length === 0) return null
+
+  // Tokenize words (letters + apostrophes + hyphens), lowercase for analysis.
+  const words: string[] = []
+  for (const s of sentences) {
+    const matches = s.match(/[A-Za-z][A-Za-z'-]*/g)
+    if (matches) words.push(...matches)
+  }
+  if (words.length < 12) return null // not enough signal
+
+  const totalChars = words.reduce((sum, w) => sum + w.length, 0)
+  const avgWordLength = totalChars / words.length
+  const avgSentenceLength = words.length / sentences.length
+
+  // Combine the two signals into a 1-5 score.
+  //   - avgWordLength: ~4 (easy) → ~7+ (dense)
+  //   - avgSentenceLength: ~8 (easy) → ~25+ (dense)
+  // Each contributes 0.5 to the score; final score is 1 + sum (clamped 1-5).
+  const wordScore = Math.max(0, Math.min(2, (avgWordLength - 4) / 1.5))
+  const sentenceScore = Math.max(
+    0,
+    Math.min(2, (avgSentenceLength - 8) / 8.5),
+  )
+  const raw = 1 + wordScore + sentenceScore
+  const score = Math.max(1, Math.min(5, Math.round(raw * 2) / 2)) // nearest 0.5
+
+  const kind: ReadingDifficulty['kind'] =
+    score <= 1.5
+      ? 'easy'
+      : score <= 2.5
+        ? 'accessible'
+        : score <= 3.5
+          ? 'moderate'
+          : score <= 4.5
+            ? 'challenging'
+            : 'dense'
+
+  return {
+    score,
+    label: DIFFICULTY_LABELS[kind],
+    kind,
+    avgWordLength: Math.round(avgWordLength * 10) / 10,
+    avgSentenceLength: Math.round(avgSentenceLength * 10) / 10,
+  }
+}

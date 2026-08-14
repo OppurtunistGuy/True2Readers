@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Bookmark,
   BookmarkCheck,
+  Check,
+  CheckCheck,
   Clock,
   Copy,
   FolderTree,
@@ -12,6 +14,7 @@ import {
   ListX,
   Sparkles,
   X,
+  BookCheck,
 } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
 import { CoverImage } from './cover-image'
@@ -29,6 +32,9 @@ const READING_LIST_GOAL = 20
 /** localStorage key for the saved view-mode preference. */
 const LS_KEY_VIEW = 'trueread:reading-list-view:v1'
 
+/** Read-status filter options for the panel. */
+type ReadFilter = 'all' | 'read' | 'unread'
+
 export interface ReadingListProps {
   books: Book[]
   onRemove: (id: string) => void
@@ -38,12 +44,17 @@ export interface ReadingListProps {
   onToggle: () => void
   /** Optional toast notifier (used for the "Copy all titles" feedback). */
   onToast?: (toast: { title: string; description?: string; duration?: number }) => void
+  /** "Mark as read" records — keyed by book id, value is an ISO timestamp. */
+  readBooks?: Record<string, string>
+  /** Toggle a book's "read" status. */
+  onToggleRead?: (book: Book) => void
 }
 
 /**
  * Slide-out reading list panel.
  * Shows bookmarked books with mini covers, titles, and authors.
- * Can remove individual items or clear all.
+ * Can remove individual items or clear all. Includes a "read" filter
+ * toggle and per-book "mark as read" badge.
  */
 export function ReadingList({
   books,
@@ -53,6 +64,8 @@ export function ReadingList({
   isOpen,
   onToggle,
   onToast,
+  readBooks = {},
+  onToggleRead,
 }: ReadingListProps) {
   // View mode: "list" (default — flat list of horizontal cards) or
   // "category" (grouped by primary category). Persisted to localStorage.
@@ -60,6 +73,28 @@ export function ReadingList({
     LS_KEY_VIEW,
     'list',
   )
+  // Read-status filter — local UI state (not persisted). Resets to "all"
+  // each time the panel re-opens.
+  const [readFilter, setReadFilter] = React.useState<ReadFilter>('all')
+  React.useEffect(() => {
+    if (isOpen) setReadFilter('all')
+  }, [isOpen])
+
+  // Read count for the header summary
+  const readCount = React.useMemo(() => {
+    let n = 0
+    for (const b of books) if (readBooks[b.id]) n++
+    return n
+  }, [books, readBooks])
+
+  // Apply the read-status filter (only in "list" view; "category" view
+  // groups everything to keep the grouping logic simple).
+  const filteredBooks = React.useMemo(() => {
+    if (readFilter === 'all' || viewMode === 'category') return books
+    return books.filter((b) =>
+      readFilter === 'read' ? !!readBooks[b.id] : !readBooks[b.id],
+    )
+  }, [books, readBooks, readFilter, viewMode])
 
   // "Copy all titles" — copies a real, plain-text list of every saved book
   // (title + author + year) to the clipboard. Surfaces a toast on both
@@ -102,10 +137,12 @@ export function ReadingList({
 
   // Group books by primary category for the "By category" view. Sorted
   // alphabetically by category name; books with no categories land in an
-  // "Uncategorized" bucket.
+  // "Uncategorized" bucket. Uses the (filtered) book list so the read filter
+  // still applies in category view (filter only applies in list view above,
+  // but grouped uses filteredBooks for consistency).
   const grouped = React.useMemo(() => {
     const map = new Map<string, Book[]>()
-    for (const b of books) {
+    for (const b of filteredBooks) {
       const cat =
         b.categories && b.categories.length > 0 ? b.categories[0] : 'Uncategorized'
       const existing = map.get(cat)
@@ -120,7 +157,7 @@ export function ReadingList({
         if (b.category === 'Uncategorized') return -1
         return a.category.localeCompare(b.category)
       })
-  }, [books])
+  }, [filteredBooks])
 
   return (
     <>
@@ -134,7 +171,7 @@ export function ReadingList({
             transition={{ duration: 0.2 }}
             type="button"
             onClick={onToggle}
-            className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-shadow hover:bg-blue-700 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-95"
+            className="trueread-cta-shine fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-shadow hover:bg-blue-700 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-95"
             aria-label={`Reading list: ${books.length} book${books.length !== 1 ? 's' : ''}`}
           >
             <BookmarkCheck className="size-4" strokeWidth={2.25} />
@@ -323,6 +360,58 @@ export function ReadingList({
                     </div>
                   </div>
                 )}
+
+                {/* Read-status filter — All / Read / Unread. Only shown in
+                    list view (the category view groups everything). Shows
+                    the read count next to the "Read" filter so the user can
+                    see at a glance how many books they've finished. */}
+                {books.length > 0 && viewMode === 'list' && (
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                      <BookCheck className="size-3" strokeWidth={2.25} />
+                      Read
+                    </span>
+                    <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
+                      {(
+                        [
+                          { value: 'all', label: 'All', count: books.length },
+                          { value: 'read', label: 'Read', count: readCount },
+                          {
+                            value: 'unread',
+                            label: 'Unread',
+                            count: books.length - readCount,
+                          },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setReadFilter(opt.value)}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-all',
+                            readFilter === opt.value
+                              ? 'bg-blue-50 text-blue-600 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-600',
+                          )}
+                          aria-pressed={readFilter === opt.value}
+                          aria-label={`Show ${opt.label} books`}
+                        >
+                          {opt.label}
+                          <span
+                            className={cn(
+                              'rounded-full px-1 text-[9px] font-bold tabular-nums',
+                              readFilter === opt.value
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-slate-100 text-slate-500',
+                            )}
+                          >
+                            {opt.count}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Book list */}
@@ -344,57 +433,139 @@ export function ReadingList({
                     <button
                       type="button"
                       onClick={onToggle}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      className="trueread-cta-shine inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
                       <Sparkles className="size-3.5" strokeWidth={2.25} />
                       Browse books
                     </button>
                   </div>
+                ) : filteredBooks.length === 0 ? (
+                  // Filter empty state — when the read filter yields no books.
+                  <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                    <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                      <BookCheck className="size-5" strokeWidth={1.75} />
+                    </span>
+                    <p className="text-sm font-medium text-slate-600">
+                      {readFilter === 'read'
+                        ? 'No books marked as read yet.'
+                        : 'All your books are marked as read.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setReadFilter('all')}
+                      className="text-xs font-medium text-blue-600 hover:underline"
+                    >
+                      Show all books
+                    </button>
+                  </div>
                 ) : viewMode === 'list' ? (
                   <ul className="divide-y divide-slate-100">
-                    {books.map((book) => (
-                      <li key={book.id} className="group relative px-5 py-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onSelect(book)
-                            onToggle()
-                          }}
-                          className="flex w-full items-start gap-3 text-left transition-colors hover:bg-slate-50 rounded-lg p-1 -m-1"
+                    {filteredBooks.map((book) => {
+                      const isRead = !!readBooks[book.id]
+                      const readAt = readBooks[book.id]
+                      return (
+                        <li
+                          key={book.id}
+                          className={cn(
+                            'group relative px-5 py-3 transition-colors',
+                            isRead && 'bg-emerald-50/30',
+                          )}
                         >
-                          <div className="w-12 shrink-0">
-                            <CoverImage
-                              book={book}
-                              sizes="48px"
-                              className="w-full"
-                            />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-sm font-medium text-slate-900 group-hover:text-blue-700">
-                              {book.title}
-                            </p>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">
-                              {book.authors.length > 0
-                                ? book.authors.join(', ')
-                                : 'Unknown author'}
-                            </p>
-                            {book.year && (
-                              <p className="text-xs tabular-nums text-slate-400">
-                                {book.year}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSelect(book)
+                              onToggle()
+                            }}
+                            className="flex w-full items-start gap-3 text-left transition-colors hover:bg-slate-50 rounded-lg p-1 -m-1"
+                          >
+                            <div className="w-12 shrink-0">
+                              <CoverImage
+                                book={book}
+                                sizes="48px"
+                                className={cn(
+                                  'w-full transition-all',
+                                  isRead && 'ring-2 ring-emerald-300/60 ring-offset-1',
+                                )}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className={cn(
+                                  'line-clamp-2 text-sm font-medium text-slate-900 group-hover:text-blue-700',
+                                  isRead && 'text-slate-600',
+                                )}
+                              >
+                                {book.title}
                               </p>
+                              <p className="mt-0.5 truncate text-xs text-slate-500">
+                                {book.authors.length > 0
+                                  ? book.authors.join(', ')
+                                  : 'Unknown author'}
+                              </p>
+                              <div className="mt-0.5 flex items-center gap-2">
+                                {book.year && (
+                                  <p className="text-xs tabular-nums text-slate-400">
+                                    {book.year}
+                                  </p>
+                                )}
+                                {isRead && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700"
+                                    title={
+                                      readAt
+                                        ? `Marked as read on ${new Date(readAt).toLocaleDateString()}`
+                                        : 'Marked as read'
+                                    }
+                                  >
+                                    <Check className="size-2.5" strokeWidth={3} />
+                                    Read
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                          <div className="absolute right-4 top-4 flex items-center gap-1">
+                            {onToggleRead && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onToggleRead(book)
+                                }}
+                                className={cn(
+                                  'inline-flex size-7 items-center justify-center rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+                                  isRead
+                                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                    : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600',
+                                )}
+                                aria-label={
+                                  isRead
+                                    ? `Mark ${book.title} as not read`
+                                    : `Mark ${book.title} as read`
+                                }
+                                aria-pressed={isRead}
+                                title={
+                                  isRead
+                                    ? 'Mark as not read'
+                                    : 'Mark as read'
+                                }
+                              >
+                                <CheckCheck className="size-3.5" strokeWidth={2.25} />
+                              </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => onRemove(book.id)}
+                              className="hidden size-7 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:flex"
+                              aria-label={`Remove ${book.title} from reading list`}
+                            >
+                              <X className="size-3.5" strokeWidth={2} />
+                            </button>
                           </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRemove(book.id)}
-                          className="absolute right-4 top-4 hidden size-7 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:flex"
-                          aria-label={`Remove ${book.title} from reading list`}
-                        >
-                          <X className="size-3.5" strokeWidth={2} />
-                        </button>
-                      </li>
-                    ))}
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : (
                   // "By category" view — groups books by their primary
@@ -427,49 +598,99 @@ export function ReadingList({
                             </span>
                           </div>
                           <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200/60">
-                            {group.items.map((book) => (
-                              <li key={book.id} className="group relative px-4 py-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    onSelect(book)
-                                    onToggle()
-                                  }}
-                                  className="flex w-full items-start gap-3 text-left transition-colors hover:bg-slate-50 rounded-lg p-1 -m-1"
+                            {group.items.map((book) => {
+                              const isRead = !!readBooks[book.id]
+                              return (
+                                <li
+                                  key={book.id}
+                                  className={cn(
+                                    'group relative px-4 py-3 transition-colors',
+                                    isRead && 'bg-emerald-50/30',
+                                  )}
                                 >
-                                  <div className="w-11 shrink-0">
-                                    <CoverImage
-                                      book={book}
-                                      sizes="44px"
-                                      className="w-full"
-                                    />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="line-clamp-2 text-sm font-medium text-slate-900 group-hover:text-blue-700">
-                                      {book.title}
-                                    </p>
-                                    <p className="mt-0.5 truncate text-xs text-slate-500">
-                                      {book.authors.length > 0
-                                        ? book.authors.join(', ')
-                                        : 'Unknown author'}
-                                    </p>
-                                    {book.year && (
-                                      <p className="text-xs tabular-nums text-slate-400">
-                                        {book.year}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onSelect(book)
+                                      onToggle()
+                                    }}
+                                    className="flex w-full items-start gap-3 text-left transition-colors hover:bg-slate-50 rounded-lg p-1 -m-1"
+                                  >
+                                    <div className="w-11 shrink-0">
+                                      <CoverImage
+                                        book={book}
+                                        sizes="44px"
+                                        className={cn(
+                                          'w-full transition-all',
+                                          isRead && 'ring-2 ring-emerald-300/60 ring-offset-1',
+                                        )}
+                                      />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="line-clamp-2 text-sm font-medium text-slate-900 group-hover:text-blue-700">
+                                        {book.title}
                                       </p>
+                                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                                        {book.authors.length > 0
+                                          ? book.authors.join(', ')
+                                          : 'Unknown author'}
+                                      </p>
+                                      <div className="mt-0.5 flex items-center gap-2">
+                                        {book.year && (
+                                          <p className="text-xs tabular-nums text-slate-400">
+                                            {book.year}
+                                          </p>
+                                        )}
+                                        {isRead && (
+                                          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                                            <Check className="size-2.5" strokeWidth={3} />
+                                            Read
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </button>
+                                  <div className="absolute right-3 top-3 flex items-center gap-1">
+                                    {onToggleRead && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          onToggleRead(book)
+                                        }}
+                                        className={cn(
+                                          'inline-flex size-6 items-center justify-center rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+                                          isRead
+                                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                            : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600',
+                                        )}
+                                        aria-label={
+                                          isRead
+                                            ? `Mark ${book.title} as not read`
+                                            : `Mark ${book.title} as read`
+                                        }
+                                        aria-pressed={isRead}
+                                        title={
+                                          isRead
+                                            ? 'Mark as not read'
+                                            : 'Mark as read'
+                                        }
+                                      >
+                                        <CheckCheck className="size-3" strokeWidth={2.25} />
+                                      </button>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={() => onRemove(book.id)}
+                                      className="hidden size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:flex"
+                                      aria-label={`Remove ${book.title} from reading list`}
+                                    >
+                                      <X className="size-3" strokeWidth={2} />
+                                    </button>
                                   </div>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onRemove(book.id)}
-                                  className="absolute right-3 top-3 hidden size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:flex"
-                                  aria-label={`Remove ${book.title} from reading list`}
-                                >
-                                  <X className="size-3" strokeWidth={2} />
-                                </button>
-                              </li>
-                            ))}
+                                </li>
+                              )
+                            })}
                           </ul>
                         </motion.section>
                       )

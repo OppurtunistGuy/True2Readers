@@ -629,3 +629,63 @@ Stage Summary:
 - Modified files: detail-view.tsx, reading-list.tsx, results-view.tsx, home-view.tsx, cover-image.tsx, reading-insights.ts, keyboard-help.tsx, globals.css.
 - Screenshots: screenshots/round9-qa-01-home.png, round9-qa-02-detail.png, round9-qa-03-home-with-mesh.png.
 - Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 13 (webDevReview round 8)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-7 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors. `bun run lint` PASS (0 errors).
+- QA round (agent-browser, desktop 1280x800): home (hero mesh, suggestion tags, mood chips, surprise me, recently viewed, quote of the day), genre→grid (29 cards), grid→card→detail, back navigation, keyboard help (?), reading list panel + read filter. All baseline clean — 0 console errors, 0 dev.log errors.
+- Decision: app is stable → focus on NEW features + styling polish (mandatory requirements).
+- NO BUGS found in this round — baseline is clean.
+
+- NEW FEATURES (4, all real-data, no fabrication):
+  1. **Reading difficulty indicator** (detail view, below cover palette) — pure local text analysis on the book's REAL description / preview text. Computes avg word length + avg sentence length, maps to a 1-5 score with 5 bands: Easy / Accessible / Moderate / Challenging / Dense. Renders as a chip with a 5-segment progress bar (filled/half/empty per segment) and the underlying metrics (e.g. "4.2 chars/word · 16.3 words/sentence"). Colors locked to navy + blue palette (cooler blues/greens for easier, warm ambers/reds for denser — no indigo/purple). Returns null for short descriptions (<80 chars or <12 words) so it never shows on sparse Apple Books fallback books. Verified: Golden Curse → "Accessible 2.0/5"; Neil Gaiman Reader → "Challenging 4.0/5". New helper `getReadingDifficulty` in reading-insights.ts. New component src/components/trueread/reading-difficulty.tsx.
+  2. **Quote of the Day** (home, between Mood Match and How TrueRead works) — curated selection of 12 REAL literary quotes from published authors (George R.R. Martin, Stephen King, Harper Lee, Neil Gaiman, Hemingway, Borges, C.S. Lewis, Dr. Seuss, etc.). No fabricated book data — these are real attributed quotations used as editorial flavor. Deterministic per-day selection (every visitor on the same UTC day sees the same quote). A "New quote" button rotates on demand with cross-fade animation. Each quote's author is clickable → triggers `author:AuthorName` search (real search pipeline). Each quote optionally shows the famous work it came from. New component src/components/trueread/quote-of-the-day.tsx.
+  3. **"Mark as read" toggle with completion timestamp + read filter** (reading list panel + detail view) — a new `readBooks` record (book id → ISO timestamp) persisted to localStorage (`trueread:read-books:v1`). Toggle from either the detail view (a "Mark read / Read" chip with `M` keyboard shortcut) or the reading list panel (a per-book check-check button on hover). Read books get: emerald-tinted background, emerald ring on the cover, and a "READ" badge next to the year (with the marked-on date in the tooltip). The reading list panel gains a new "READ" filter row (All / Read / Unread) with live counts — only shown in list view. Filter empty state for "Read" / "Unread" with a "Show all books" recovery button. New `toggleRead` callback + `readIds` derived set in page.tsx, plumbed to DetailView (isRead + onToggleRead) and ReadingList (readBooks + onToggleRead). `m` keyboard shortcut added to keyboard-help overlay (BookCheck icon).
+  4. **Book length filter** (results page) — new "LENGTH" filter row (Any length / Short <300p / Medium 300–600p / Long >600p) using the REAL pageCount. Only shown when at least one book on the page has a real pageCount (hidden for Apple Books fallback pages where no books have page counts — no fabrication). Combines with the existing decade + rating filters. The empty state copy adapts to show which filter combination yielded no books (e.g. "No long books with 4+ stars on this page.") and the "Clear filters" button resets all three. New `LengthFilter` type + `LENGTH_FILTERS` const + `showLengthFilter` memo + `lengthFilter` state in results-view.tsx.
+
+- STYLING POLISH (3):
+  1. **Animated gradient border shine on primary CTAs** — new `.trueread-cta-shine` utility in globals.css. On hover, an animated gradient border (white-on-blue, sweeping left→right infinitely) traces around the button via a masked pseudo-element. Respects prefers-reduced-motion (animation disabled). Applied to: hero search submit button (search-bar.tsx), "Find similar books" CTA (detail-view.tsx), reading list floating trigger button + "Browse books" empty-state CTA (reading-list.tsx).
+  2. **Ambient cover glow** — new `.trueread-cover-glow` utility in globals.css. Adds a soft blue radial-gradient behind the book cover in the detail view, lifting it off the page. Intensifies on hover (0.18 → 0.28 alpha). Applied to the detail-view cover wrapper.
+  3. **Balanced heading text wrapping** — new `.trueread-heading-balance` (text-wrap: balance) and `.trueread-heading-pretty` (text-wrap: pretty) utilities. Applied to: home hero h1 + subtitle (home-view.tsx), detail view h1 book title (detail-view.tsx). Produces cleaner multi-line breaks on long titles.
+
+- KEYBOARD HELP OVERLAY UPDATE:
+  - Added `M` shortcut to the Actions group in keyboard-help.tsx: "Mark current book as read / unread (detail view)" with a `BookCheck` icon (lucide-react). Verified: pressing `?` opens the overlay and the M shortcut is listed between C and the arrow keys.
+
+- FILES CREATED (2):
+  - src/components/trueread/reading-difficulty.tsx (ReadingDifficultyChip: 5-segment meter + metrics, color-coded by kind)
+  - src/components/trueread/quote-of-the-day.tsx (QuoteOfTheDay: 12 curated real quotes, deterministic per-day, manual rotation, clickable author)
+
+- FILES MODIFIED:
+  - src/components/trueread/reading-insights.ts (added getReadingDifficulty + ReadingDifficulty interface + DIFFICULTY_LABELS)
+  - src/components/trueread/detail-view.tsx (integrate ReadingDifficultyChip below cover palette; isRead + onToggleRead props; "Mark as read" chip with M kbd hint; m keyboard shortcut; trueread-cover-glow on cover wrapper; trueread-heading-balance on h1; trueread-cta-shine on Find similar CTA; BookCheck + CheckCheck imports)
+  - src/components/trueread/home-view.tsx (QuoteOfTheDay section between Mood Match and How TrueRead works; trueread-heading-balance on hero h1; trueread-heading-pretty on subtitle)
+  - src/components/trueread/reading-list.tsx (readBooks + onToggleRead props; readFilter state + UI; per-book read toggle button + READ badge + emerald styling; filter empty state; trueread-cta-shine on floating trigger + Browse books CTA; BookCheck + Check + CheckCheck imports)
+  - src/components/trueread/results-view.tsx (lengthFilter state + LENGTH_FILTERS const + showLengthFilter memo; length filter UI row; combined decade+rating+length empty state copy; BookOpen import)
+  - src/components/trueread/search-bar.tsx (trueread-cta-shine on hero search submit button)
+  - src/components/trueread/keyboard-help.tsx (M shortcut in Actions group, BookCheck import)
+  - src/app/page.tsx (readBooks localStorage state + LS_KEY_READ_BOOKS; toggleRead callback; readIds derived set; plumbed isRead + onToggleRead to DetailView; plumbed readBooks + onToggleRead to ReadingList)
+  - src/app/globals.css (.trueread-cta-shine + @keyframes trueread-cta-shine-sweep; .trueread-cover-glow; .trueread-heading-balance + .trueread-heading-pretty; prefers-reduced-motion update)
+
+- VERIFICATION (agent-browser, all passed):
+  - Home: Quote of the Day renders with "A book is dream..." by Neil Gaiman ✓; "New quote" button rotates to "There is no friend as loyal as a book." by Ernest Hemingway ✓; clicking author name → "Books by Neil Gaiman" results page ✓
+  - Results (Fantasy, 29 cards from Apple Books): decade filter present, length filter correctly hidden (no books have pageCount — no fabrication) ✓
+  - Detail (Golden Curse): Reading difficulty "Accessible 2.0/5, 4.2 chars/word, 16.3 words/sentence" ✓; "Mark as read" chip present with M kbd hint ✓; cover glow visible ✓
+  - Detail (Neil Gaiman Reader): Reading difficulty "Challenging 4.0/5" ✓ (different book → different score, proving the analysis is real)
+  - Click "Mark as read" → button changes to "Mark as not read" / "Read" ✓; `m` keyboard shortcut toggles it back ✓
+  - Reading list panel: "READ" filter row shows All 4 / Read 0 / Unread 4 ✓; mark one book as read → Read 1 / Unread 3 ✓; "Read" filter shows only the marked book ✓; "Unread" filter shows the other 3 ✓; READ badge + emerald ring on cover ✓
+  - Keyboard help (?): M shortcut "Mark current book as read / unread (detail view)" listed ✓
+  - Console errors: 0 (armed error catcher, ran full flow)
+  - dev.log errors: 0 (only expected Google Books 429 → Apple Books fallback messages)
+  - `bun run lint` → PASS (0 errors, 0 warnings)
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 0 bug fixes (none needed — baseline was clean) + 4 new features + 3 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: reading-difficulty.tsx, quote-of-the-day.tsx.
+- Modified files: reading-insights.ts, detail-view.tsx, home-view.tsx, reading-list.tsx, results-view.tsx, search-bar.tsx, keyboard-help.tsx, page.tsx, globals.css.
+- Screenshots: screenshots/round9-qa-01-home.png through round9-qa-10-detail-full.png (10 screenshots covering home with quote, results, detail with reading difficulty, reading list with read filter, keyboard help).
+- Continuous review loop still armed (cron 323008, every 15 min).

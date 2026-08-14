@@ -1,0 +1,332 @@
+- Continuous review loop armed (cron 323008, every 15 min).
+
+---
+Task ID: 7 (webDevReview round 2)
+Agent: coordinator (cron webDevReview)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (Phase 1 complete and stable, round 1 features added). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser): home, genre to grid, genre to card to detail, back navigation, author link search, autocomplete, bookmark toast, scroll-to-top. No console errors.
+- NEW features (all real-data, no fabrication):
+  1. Search autocomplete dropdown: on the hero search, when the user focuses or types, a dropdown appears with 8 filtered suggestions from a curated list of popular titles/genres plus recent searches. Shows type labels (Title/Genre/Recent). Keyboard navigation. Auto-triggers search on selection.
+  2. Clickable author links: in detail view, each author is rendered as a clickable pill that triggers author:name search.
+  3. Toast notifications: added shadcn/ui toast for bookmark add/remove, reading list clear.
+  4. Animated top progress bar: fixed-position 3px bar during search loading. Two-phase animation with shimmer overlay.
+  5. Floating scroll-to-top button: appears after scrolling 400px. Smooth scroll to top on click.
+  6. Explore related topics section: in detail view below About this book, shows categories as searchable list items.
+  7. Result count animation: the total count in the results header animates with fade plus slide motion.
+  8. Real data always trust section: new section on home with three trust items.
+  9. Improved empty state with SearchX icon.
+  10. Filter icon next to Year label in decade jump-bar.
+  11. Meta row icons: Clock next to year, BookOpen next to page count in detail.
+  12. Globe icon next to Source attribution in detail.
+  13. Show more/less uses ChevronDown/ChevronUp icons.
+  14. Footer updated with Apple Books fallback mention.
+  15. Book card hover View badge appears on cover hover.
+  16. CSS utilities: progress bar shimmer, card hover lift, chip focus.
+- Files created: search-autocomplete.tsx, search-progress.tsx, scroll-to-top.tsx, author-links.tsx, explore-related.tsx.
+- Files modified: page.tsx, globals.css, search-bar.tsx, home-view.tsx, detail-view.tsx, results-view.tsx, book-card.tsx, footer.tsx.
+- Lint: PASS (0 errors, 0 warnings). Console errors: none.
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 16 improvements (8 new features + 8 UI/styling polish) added within the single-page loop.
+- Screenshots: screenshots/round4-final-home.png, round4-final-results.png, round4-final-detail.png.
+- Continuous review loop armed (cron 323008, every 15 min).
+
+---
+Task ID: 8 (webDevReview round 3)
+Agent: coordinator (cron webDevReview)
+Task: QA pass + fix bugs + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-2 complete and stable). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser): home, genre to grid, genre to card to detail, back navigation, author link search, autocomplete, bookmark toast, scroll-to-top, keyboard help overlay, compare modal, reading mode. No console errors.
+- BUG FIX:
+  1. Author search display: clicking an author link sent `author:M. Lynn` which displayed as the raw heading "author:M. Lynn". Created query-format.ts with formatQueryForDisplay() that converts `author:X` to "Books by X" for display. ResultsView now shows a friendly heading with a User icon when the query is an author search. Verified: "Books by James Clear" displays correctly.
+- NEW features (all real-data, no fabrication):
+  1. Book comparison mode: a "Compare" toggle button in the results header activates a selection mode. Each book card shows a compare-select badge (top-right). Users can select up to 3 books. A sticky banner shows selection count and a "Compare N books" button. Clicking opens a full-screen modal with side-by-side comparison of: Rating, Pages, Reading Time, Published year, and all 4 AI breakdown metrics (Pacing, Tone, Dialogue, Complexity). Each metric row highlights the "winner" with a blue badge + checkmark. The modal lets users click any book title to jump to its detail page. Compare mode disables bookmark buttons to avoid accidental clicks.
+  2. Reading mode toggle: a "Reading mode" button (with Maximize2 icon) in the detail view insight chips opens a full-screen overlay with the book's preview/description in a distraction-free, larger-text layout. Shows the book title + author in a header, a reading time chip, the text with a drop cap, and a footer with source attribution + Esc hint. Body scroll is locked while open. Closes on Esc, backdrop click, or the minimize button.
+  3. Keyboard shortcut help overlay: press `?` (or Shift+/) to open a centered dialog listing all keyboard shortcuts grouped by Navigation and Actions. Each shortcut shows an icon, description, and kbd-styled key caps. A `?` button is also in the header for mouse users. Body scroll locked while open. Closes on Esc or backdrop click.
+  4. Quick rating filter: on the results page, when any book has a rating > 0, rating filter chips appear (Any rating / 4+ stars / 3+ stars) alongside the decade filter. Books without ratings are filtered out when a rating filter is active. Combined with the decade filter for "No books from the Xs with Y+ stars" empty state with a "Clear filters" button.
+  5. Enhanced stats summary card: in the detail view, below the star rating, a "QUICK FACTS" card shows key metrics (Published, Publisher, Pages, Read time) in a compact definition-list layout with blue-tinted icon containers. Replaces the inline meta row for a cleaner visual hierarchy.
+  6. Collapsible category chips: in the detail view, if a book has more than 3 categories, only the first 3 are shown with a "+N more" expand button. Clicking expands to show all categories with a "Show less" collapse button.
+  7. User icon next to author search heading: when the results are from an author search, a User icon appears next to the "Books by X" heading for visual context.
+  8. Compare mode banner with animated entrance: AnimatePresence height animation when toggling compare mode on/off.
+- Files created:
+  - src/components/trueread/query-format.ts (formatQueryForDisplay, isAuthorSearch, extractAuthorName)
+  - src/components/trueread/keyboard-help.tsx (KeyboardHelp overlay dialog)
+  - src/components/trueread/compare-modal.tsx (CompareModal with MetricRow/MetricCell)
+- Files modified:
+  - src/app/page.tsx (keyboardHelpOpen state, ? shortcut handler, KeyboardHelp component, ? button in header)
+  - src/components/trueread/results-view.tsx (compareMode, compareSelected, minRating state; CompareModal; formatQueryForDisplay; rating filter chips; compare banner; User icon for author searches; passes compareMode/isCompareSelected/onToggleCompare to BookCard)
+  - src/components/trueread/detail-view.tsx (readingMode state; ReadingMode overlay; stats summary card; collapsible categories; removed inline meta row in favor of stats card)
+  - src/components/trueread/book-card.tsx (compareMode, isCompareSelected, onToggleCompare props; compare-select badge on cover; "Selected" overlay; ring highlight when selected; bookmark hidden in compare mode)
+- Verification (agent-browser, all passed):
+  - Keyboard help: ? button in header opens dialog; ? shortcut opens dialog; Esc closes dialog
+  - Author search: "Books by James Clear" heading with User icon
+  - Compare mode: toggle activates; select 3 books; "Compare 3 books" button enabled; modal opens with Rating/Pages/Reading Time/Published/Breakdown rows
+  - Reading mode: button in detail chips; opens full-screen overlay with title, author, reading time chip, text with drop cap, source attribution
+  - Collapsible categories: "+2 more" button expands/collapses
+  - Quick facts card: shows Published, Publisher, Pages, Read time
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 1 bug fix + 8 new features/polish added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: query-format.ts, keyboard-help.tsx, compare-modal.tsx.
+- Modified files: page.tsx, results-view.tsx, detail-view.tsx, book-card.tsx.
+- Screenshots: screenshots/round5-keyboard-help.png, round5-compare-modal.png, round5-reading-mode.png, round5-results-sf.png, round5-baseline-home.png, round5-baseline-results.png, round5-baseline-detail.png.
+- Continuous review loop armed (cron 323008, every 15 min).
+
+---
+Task ID: 9 (webDevReview round 4)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + fix bugs + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-3 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser, desktop + iPhone 14 mobile): home, genre→grid (29 cards), grid→card→detail, back navigation, cover lightbox, keyboard shortcuts, reading list panel. All clean — no console errors.
+- BUG FIX:
+  1. Unused `readingListCount` prop in HomeView: the prop was declared but never rendered. Now displayed as a small "N in your list" chip next to the hero badge (with Library icon). Hidden when 0.
+  2. Sparse QUICK FACTS card: when a book comes from Apple Books fallback (no publisher / pageCount / read-time), the card showed only "Published: 2018" — visually sparse. Now hidden when fewer than 2 facts are available (the source attribution remains visible in the Preview section).
+  3. View badge collision: the book-card hover "View" badge shared the top-right corner with the bookmark button, causing visual overlap on hover. Moved "View" badge to bottom-left with a subtle translate-y entrance animation.
+  4. Escape overlay behavior: pressing Escape while the cover lightbox or reading mode overlay was open used to navigate back to results (page-level Escape handler fired before DetailView could close its overlay). Added a capture-phase Escape interceptor in DetailView that calls `stopImmediatePropagation` when an overlay is open, so Escape closes ONLY the overlay first. Verified: lightbox opens → Esc → lightbox closes (still on detail page). Reading mode opens → Esc → reading mode closes (still on detail page).
+
+- NEW features (all real-data, no fabrication):
+  1. Cover lightbox: clicking the book cover in detail view opens a fullscreen zoomed cover overlay (CoverLightbox component). Shows the cover at large size, the book title + author + "First published YEAR", and an "Open in {source}" link. Body scroll locked. Closes on backdrop click, close button, or Escape (intercepted).
+  2. "Find similar books" CTA: a prominent blue button in detail view (below the category chips) that searches the book's first category. Includes a rotating Compass icon on hover and shows the category name on sm+ screens. Strengthens the discovery loop.
+  3. Reading list stats: the slide-out panel header now shows an "Est. reading time" row that sums the real page counts of all saved books (using the existing `estimateReadingTime` helper). Displays total as "Xh Ym" or "X min". Hidden when no saved books have real page counts (e.g. all from Apple Books fallback) — never fabricated.
+  4. Detail page scroll progress bar: a 2px blue gradient bar (ScrollProgress component using framer-motion's `useScroll` + `useSpring`) fixed to the top of the viewport. Fills smoothly as the user scrolls the detail page. Respects reduced-motion.
+  5. Keyboard shortcuts `b` and `r` (detail view only, when not typing in an input):
+     - `b` toggles the bookmark on the current book (only when `onToggleBookmark` is wired).
+     - `r` toggles reading mode (only when there's text to read).
+     Both shortcuts are documented in the keyboard help overlay (with `Bookmark` and `Maximize2` icons). The detail view also shows inline `<kbd>` hints on the "Save" and "Reading mode" chips (sm+ only).
+  6. "Showing X–Y of Z" indicator in results header: appears next to the "About N results" count on sm+ screens. Updates with pagination. Real math from page + maxResults + totalItems.
+
+- Styling polish:
+  - Suggestion tags now use `trueread-chip-focus` utility (lift + scale on hover) with `shadow-sm` baseline and `hover:shadow-md`. The translate-x effect on hover remains.
+  - Hero badge layout: "Understand any book in seconds" and "N in your list" chips are now in a centered flex row with `gap-2`.
+  - Cover hover in detail view: clicking the cover has a subtle `scale-[1.02]` transform on hover + a "Click to zoom" pill overlay that fades in.
+  - Reading mode / Save chips now show their keyboard shortcut hint (`R`, `B`) inline as `<kbd>` elements (hidden on mobile to save space).
+  - Find similar button has a rotating Compass icon on hover (`group-hover/sim:rotate-45`).
+
+- Files created:
+  - src/components/trueread/scroll-progress.tsx (reusable slim scroll-progress bar, framer-motion useScroll + useSpring)
+  - src/components/trueread/cover-lightbox.tsx (fullscreen cover zoom overlay with title/author/source link)
+- Files modified:
+  - src/components/trueread/detail-view.tsx (cover lightbox trigger + overlay, find-similar CTA, scroll progress bar, b/r keyboard shortcuts, capture-phase Escape interceptor, hide sparse QUICK FACTS, inline kbd hints on Save/Reading-mode chips)
+  - src/components/trueread/home-view.tsx (use readingListCount → "N in your list" chip, suggestion tag hover polish)
+  - src/components/trueread/reading-list.tsx (header stats row: total est. reading time from real page counts)
+  - src/components/trueread/book-card.tsx (moved View badge to bottom-left with translate-y entrance)
+  - src/components/trueread/results-view.tsx (Showing X–Y of Z indicator next to result count)
+  - src/components/trueread/keyboard-help.tsx (added B and R shortcuts to the Actions group)
+- Verification (agent-browser, all passed):
+  - Home: "1 in your list" chip appears when a book is saved ✓
+  - Results: "About 29 results from Apple Books · Showing 1–24" ✓
+  - Detail: "Zoom cover of Golden Curse" button + "Click to zoom" hint ✓
+  - Cover lightbox: click → opens dialog with title/author/year + source link ✓
+  - Escape from lightbox: closes ONLY lightbox (stays on detail page) ✓
+  - `b` shortcut: toggles bookmark (Add → Remove from reading list) ✓
+  - `r` shortcut: opens reading mode overlay ✓
+  - Escape from reading mode: closes ONLY reading mode ✓
+  - "Find similar books in Fantasy" CTA: click → new genre search ✓
+  - QUICK FACTS card: hidden when <2 facts (Apple Books fallback) ✓
+  - Reading list panel: "1 book saved" header (stats row hidden when no page counts) ✓
+  - Keyboard help: B and R shortcuts listed in Actions group ✓
+  - Mobile (iPhone 14, 390x844): all features present, kbd hints hidden, layout responsive ✓
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 4 bug fixes + 6 new features + 6 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: scroll-progress.tsx, cover-lightbox.tsx.
+- Modified files: detail-view.tsx, home-view.tsx, reading-list.tsx, book-card.tsx, results-view.tsx, keyboard-help.tsx.
+- Screenshots: screenshots/round6-01-home.png through round6-14-scroll-progress.png (14 screenshots covering home, results, detail, lightbox, reading-list panel, keyboard help, mobile views, scroll progress).
+- Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 10 (webDevReview round 5)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + fix bugs + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-4 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors.
+- QA round (agent-browser, desktop): home, genre→grid (29 cards), grid→card→detail, back navigation, share button, compare mode, reading list panel, keyboard shortcuts. All baseline clean.
+- BUG FIXES (3):
+  1. **CRITICAL: Compare-select button was nested inside the card's main `<button>` element** — invalid HTML, browsers strip the inner button so compare mode was completely broken (clicking a card in compare mode navigated to detail instead of selecting; no compare-select badge appeared on any card). Fixed by restructuring `book-card.tsx` so the compare-select button is a SIBLING of the main click button (positioned absolutely over the cover), matching the existing pattern used for the bookmark button. Both grid and list variants fixed. Verified: 29 compare-select buttons now render on the grid; selecting 3 books enables the "Compare 3 books" button; modal opens with the side-by-side comparison.
+  2. **Share button failed silently when `navigator.clipboard.writeText` rejected** (e.g. in headless / insecure context / missing permission). Now provides explicit toast feedback on BOTH success ("Copied to clipboard") and failure ("Couldn't copy automatically" + the shareable text shown in the toast so the user can read/copy it manually). Removed the intrusive `window.prompt()` fallback that was blocking the page in headless browsers. `onToast` prop plumbed through `page.tsx → DetailView`.
+  3. **Grammar: header reading-list button aria-label said "Reading list: 1 books"** (singular vs plural). Now correctly distinguishes "1 book" from "N books".
+- NEW FEATURES (4, all real-data, no fabrication):
+  1. **Mood Match on home** — 8 quick-pick mood chips (Cozy, Thrilling, Romantic, Mind-bending, Epic, Educational, Dark, Whimsical) each mapping to a real genre/topic search. Each chip is a card with an icon, label, and hint subtitle, with a subtle hover gradient wash and an icon color-flip animation (blue-50/blue-600 → solid blue-600/white on hover). Section sits between the hero and "How TrueRead works" with full responsiveness (2 cols mobile, 4 cols sm+).
+  2. **"More from this author" auto-section in detail view** — fetches up to 5 OTHER books by the same author using the existing `/api/books/search?q=author:X` endpoint (real data, excludes the current book by id, deduped). Renders as a section below the main detail article with a Library icon, "More from {author}" heading (author name in blue), book count chip, and a horizontal scroll of mini book cards (cover + title + year). Loading skeleton with 5 shimmer placeholders while fetching. Section silently hidden if the author search fails or yields no other books — never fabricated.
+  3. **localStorage persistence for reading list + recent searches** — both now survive page reload. Created `useLocalStorage<T>` hook (SSR-safe, JSON-serializing, cross-tab sync via `storage` event, all reads/writes wrapped in try/catch so blocked storage never crashes the app). Reading list key: `trueread:reading-list:v1`; recent searches key: `trueread:recent:v1`. Verified: bookmark a book → reload → book still in list and header badge still shows count.
+  4. **Keyboard arrow navigation in results grid** — ArrowUp/Down/Left/Right move focus between cards (column count detected from viewport width matching Tailwind breakpoints: 2/3/4/5 cols). Home/End jump to first/last card. Enter opens the focused card. Focus ring (blue-500 + offset) highlights the active card. Only active in grid view mode and when not typing in an input. Reset on query/filter/sort/page change. `cardRefs` array + `mainButtonRef` prop on `BookCard` for focus management. Documented in the keyboard-help overlay (Grid3X3 + ArrowRight icons).
+- STYLING POLISH:
+  - **Animated logo** — BookOpen icon now tilts -6° + scales 1.05x on hover; Sparkles accent rotates +12° + scales 1.1x + deepens to blue-600 on hover; icon container bg transitions from blue-50 → blue-100; subtle radial highlight overlay inside the container; "Read" wordmark deepens to blue-700 on hover. All via `group/logo` + Tailwind transitions (no JS).
+  - **Compare-select badge enhanced** — moved out of nested-button position (see bug fix #1), now a sibling with `size-9` (larger), `bg-white/95` with `shadow-md backdrop-blur-sm`, ring-2 + ring-blue-300 halo when selected, descriptive aria-label including book title (`"Add {title} to comparison"` / `"Remove {title} from comparison"`).
+  - **Hover "View" badge** — added `pointer-events-none` so it never intercepts card clicks even when visually overlapping.
+  - **Selected checkmark overlay** — also `pointer-events-none`.
+- Files created:
+  - src/components/trueread/use-local-storage.ts (SSR-safe localStorage hook with cross-tab sync)
+  - src/components/trueread/more-from-author.tsx (auto author-search section + skeleton)
+- Files modified:
+  - src/components/trueread/book-card.tsx (de-nested compare-select button, added isFocused + mainButtonRef props, list-variant restructure with sibling buttons, focus ring on focused card)
+  - src/components/trueread/detail-view.tsx (onToast prop + share toast feedback, onSelectBook prop, MoreFromAuthor integration, removed intrusive prompt() fallback)
+  - src/components/trueread/home-view.tsx (Mood Match section with 8 mood chips + hover animations, MOODS const)
+  - src/components/trueread/results-view.tsx (focusedIndex state, cardRefs, arrow-key keyboard effect with column-count detection, isFocused + mainButtonRef passed to BookCard, reset on filter/sort/page change)
+  - src/components/trueread/logo.tsx (group/logo hover animations: book tilt, sparkles twirl, container color shift, radial highlight overlay)
+  - src/components/trueread/keyboard-help.tsx (added arrow keys + Enter shortcuts to Actions group with Grid3X3 + ArrowRight icons)
+  - src/app/page.tsx (useLocalStorage for readingList + recentSearches, LS_KEY constants, onToast + onSelectBook plumbed to DetailView, fixed singular/plural grammar in header aria-label)
+- Verification (agent-browser, all passed):
+  - Home: Mood Match section renders with 8 chips (Cozy/Thrilling/Romantic/Mind-bending/Epic/Educational/Dark/Whimsical) ✓
+  - Click "Thrilling" mood → results grid for "thriller" (29 results from Apple Books) ✓
+  - Compare mode: toggle on → 29 compare-select badges render on cards (was 0 before fix) ✓; select 3 → "Compare 3 books" enabled; modal opens with side-by-side ✓
+  - Detail: "More from M. Lynn" / "More from James Clear" / "More from Blake Pierce" sections render with 5 mini cards each ✓; clicking a related card navigates to its detail ✓
+  - Share button: shows toast "Couldn't copy automatically" + shareable text (graceful fallback in headless context) ✓
+  - localStorage: `trueread:reading-list:v1` and `trueread:recent:v1` populated; survives reload ✓
+  - Bookmark a book → reload → header still shows "Reading list: 1 book" (correct singular grammar) ✓
+  - Arrow keys: ArrowRight ×2 + ArrowDown moves focus to "A Crown of Ruin" card (focus ring visible); Enter opens that book's detail ✓
+  - Keyboard help: Arrow keys + Enter shortcuts listed in Actions group ✓
+  - Logo hover: classes confirm `group/logo` is wired ✓
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 3 bug fixes (1 critical: compare-mode was completely broken) + 4 new features + 4 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: use-local-storage.ts, more-from-author.tsx.
+- Modified files: book-card.tsx, detail-view.tsx, home-view.tsx, results-view.tsx, logo.tsx, keyboard-help.tsx, page.tsx.
+- Screenshots: screenshots/round7-qa-01 through round7-final-06 (covers home, mood section, mood search results, compare mode fixed, compare modal, detail with More-from-author, share toast, keyboard help updated).
+- Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 11 (webDevReview round 6)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-5 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple Books fallback active), no errors.
+- QA round (agent-browser, desktop + mobile 390x844): home, genre→grid (29 cards), grid→card→detail, back navigation, compare mode (toggle + select 3 + modal), keyboard help overlay, reading list panel. All baseline clean — no console errors, no dev.log errors.
+- Decision: app is stable → focus on NEW features + styling polish (mandatory requirements).
+- NO BUGS found in this round — baseline is clean.
+
+- NEW FEATURES (5, all real-data, no fabrication):
+  1. **"Surprise me" discovery button** (home hero) — secondary CTA under the hero search. Picks a random query from a curated list of 20 REAL genres/topics (cozy mystery, thriller, romance, fantasy, science fiction, horror, self-help, historical fiction, memoir, biography, mystery, adventure, noir, fairytale, detective, literary fiction, magical realism, coming of age, true crime, mythology) and runs the EXISTING search pipeline. Never repeats the last pick. Rotating Shuffle icon on hover. Disabled while a search is loading. New component: src/components/trueread/surprise-me.tsx.
+  2. **Recently viewed books strip** (home, below hero) — horizontal scroll of the last 8 books the user opened in detail view. Persisted to localStorage (key: `trueread:recently-viewed:v1`). Each mini card shows cover (with hover zoom), title, first author. Per-card remove (×) button on hover. "Clear" link in the header. Animated entrance (fade + scale, staggered). Hidden entirely when empty (ambient surface, no empty state). New component: src/components/trueread/recently-viewed.tsx. Wired via page.tsx: handleSelectBook prepends to recentlyViewed (deduped by id, capped at 8).
+  3. **Reading sessions breakdown** (detail view insight chips) — new pill showing "N sessions of ~M min" derived from the real pageCount via a new `getReadingSessions()` helper (25-min Pomodoro-style sessions). Pure math, no fabrication. Only shown when sessions > 1 (single-sitting books don't need the pill). Hidden for Apple Books fallback books with no pageCount. New Timer icon. Helper added to src/components/trueread/reading-insights.ts.
+  4. **Print / Save as PDF** (detail view) — new "Print" chip button in the insight chips row. Calls window.print(). Combined with comprehensive print CSS in globals.css (@media print) that hides all chrome (header, footer, search bar, chips marked .trueread-no-print, floating buttons, scroll progress bar, More-from-author section) and renders only the book detail article (cover + title + author + meta + preview + breakdown) in a clean, printable layout. Includes a `p` keyboard shortcut (documented in the keyboard-help overlay). Graceful fallback toast if window.print is unavailable.
+  5. **"Copy all titles" export** (reading list panel) — new button in the panel header. Copies a plain-text, numbered list of every saved book (title + author + year) to the clipboard, prefixed with "My TrueRead reading list (N books):". Toast feedback on both success ("Reading list copied — N books ready to paste") and failure ("Couldn't copy automatically"). Uses the async Clipboard API with try/catch. Real data only — no fabrication.
+
+- STYLING POLISH:
+  1. **Reading-list progress bar** — new "READING GOAL" progress bar in the panel header showing X/20 books saved (soft goal, not a hard cap). Animated width fill on mount. Turns into a blue→blue-700 gradient when the goal is reached. Hidden when the list is empty.
+  2. **Better empty state for reading list** — replaced the sparse "No books saved yet" text with a richer empty state: larger gradient icon container, semibold heading ("Your reading list is empty"), descriptive subtext, and a prominent "Browse books" CTA button (Sparkles icon) that closes the panel so the user can go discover books.
+  3. **Cover hover zoom on book cards** — the grid-variant cover now scales 1.03x on hover (smooth 300ms ease-out), layered under the existing gradient overlay + "View" badge. Subtle but adds life to the grid.
+  4. **Custom horizontal scrollbar** — new `.trueread-scroll-x` utility class with a slimmer 6px thumb (vs the default 10px) for horizontal scroll strips (recently-viewed, more-from-author). Doesn't compete with the card art.
+  5. **Print stylesheet** — full @media print block: hides chrome, strips shadows/rings, expands the article to full page width, forces dark text on white, fixes the drop cap to render reliably in print, avoids breaking images across pages.
+  6. **Keyboard help overlay** — added the new `P` shortcut (Printer icon) to the Actions group, alongside the existing B and R shortcuts.
+
+- Files created:
+  - src/components/trueread/surprise-me.tsx (SurpriseMe button, hero + inline variants, rotating Shuffle icon, no-repeat pool)
+  - src/components/trueread/recently-viewed.tsx (RecentlyViewed horizontal strip, animated entrance, per-card remove, clear-all)
+- Files modified:
+  - src/components/trueread/reading-insights.ts (added getReadingSessions + ReadingSessions interface)
+  - src/components/trueread/home-view.tsx (added SurpriseMe below hero, RecentlyViewed strip section, new props)
+  - src/components/trueread/detail-view.tsx (reading sessions pill, Print button + handlePrint, p keyboard shortcut, Printer/Timer imports, data-trueread-more-from-author attr for print CSS, trueread-no-print classes on Print/Share chips)
+  - src/components/trueread/reading-list.tsx (progress bar, Copy all button + handleCopyAll, better empty state with CTA, onToast prop, READING_LIST_GOAL const, Sparkles/Copy imports)
+  - src/components/trueread/book-card.tsx (cover hover zoom wrapper)
+  - src/components/trueread/keyboard-help.tsx (added P shortcut to Actions group, Printer import)
+  - src/app/page.tsx (recentlyViewed localStorage state, pushRecentlyViewed, handleClearRecentlyViewed, handleRemoveRecentlyViewed, wired to HomeView; onToast plumbed to ReadingList; LS_KEY_RECENTLY_VIEWED + MAX_RECENTLY_VIEWED consts)
+  - src/app/globals.css (.trueread-scroll-x utility, full @media print block)
+- Verification (agent-browser, all passed):
+  - Home: "Surprise me" button renders below hero ✓
+  - Click "Surprise me" → real search runs (landed on thriller, 29 results from Apple Books) ✓
+  - Open book detail → go home → "RECENTLY VIEWED" strip appears with the book ✓; "Clear recently viewed" link present ✓
+  - Detail: "Print" chip present with P kbd hint ✓; reading sessions pill correctly hidden for Apple Books books with no pageCount (no fabrication) ✓
+  - Reading list panel: "1 book saved", "Copy all" button, "Clear" button, "READING GOAL" progress bar all present ✓
+  - Click "Copy all" → "Reading list copied" toast appears ✓
+  - Keyboard help: "Print or save as PDF (detail view)" listed in Actions group with P kbd ✓
+  - Mobile (iPhone 14, 390x844): Surprise me button + Recently viewed strip + all features present and responsive ✓
+  - Lint: PASS (0 errors, 0 warnings)
+  - Console errors: none; dev.log errors: none (only the expected Google Books 429 → Apple Books fallback messages)
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 0 bug fixes (none needed — baseline was clean) + 5 new features + 6 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: surprise-me.tsx, recently-viewed.tsx.
+- Modified files: reading-insights.ts, home-view.tsx, detail-view.tsx, reading-list.tsx, book-card.tsx, keyboard-help.tsx, page.tsx, globals.css.
+- Screenshots: screenshots/round8-home-with-surprise.png, round8-surprise-result.png, round8-detail-with-sessions.png, round8-home-with-recently-viewed.png, round8-reading-list-panel.png, round8-copy-all-toast.png, round8-kbd-help-with-p.png, round8-mobile-home-full.png.
+- Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 12 (webDevReview round 7)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-6 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors. `bun run lint` PASS (0 errors).
+- QA round (agent-browser, desktop 1280x800 + mobile 390x844): home (hero mesh, suggestion tags, mood chips, surprise me, recently viewed all rendering), genre→grid (29 cards), grid→card→detail, back navigation, keyboard help (?), reading list panel. All baseline clean — 0 console errors, 0 dev.log errors.
+- Decision: app is stable → focus on NEW features + styling polish (mandatory requirements).
+- NO BUGS found in this round — baseline is clean.
+
+- NEW FEATURES (5, all real-data, no fabrication):
+  1. **Personalized reading pace calculator** (detail view) — new chip "Custom pace" with Gauge icon + `<kbd>C</kbd>` hint opens a modal dialog. User adjusts a WPM slider (100–600, step 10, default 250) OR clicks a quick preset (Slow 150 / Average 250 / Fast 350 / Speed reader 500). Modal shows personalized reading time computed from the book's REAL pageCount: `minutes = pageCount * (250 / wpm)` (faster WPM → fewer minutes). Also shows derived reading sessions ("≈ N sessions of ~M min") and a comparison line ("Default pace (250 wpm): ~Xh Ym"). Gracefully handles missing pageCount (Apple Books fallback) with a helpful "No page count available for this book — try another title from Google Books for a personalized estimate." message and hides the result. WPM persisted to localStorage key `trueread:pace:v1` (uses existing useLocalStorage hook). Body scroll locked while open; capture-phase Escape interceptor integrated into the existing detail-view Escape handler so Esc closes ONLY the calculator (not the page). `c` keyboard shortcut opens it (documented in keyboard-help overlay). New file: src/components/trueread/pace-calculator.tsx.
+  2. **Themes & keywords analyzer** (detail view) — extracts the top 8 most frequent meaningful words from the book's REAL description/preview text and displays them as clickable search chips. Pure local text mining: tokenize → lowercase → filter length ≥4 → remove built-in English stopword set (articles, conjunctions, prepositions, pronouns, modal verbs + common book-description words like "book", "story", "author") → count frequencies → filter count ≥2 → sort desc → take top 8. Each chip shows the word + a count badge ("× 5"); font size scales slightly with count (text-xs/text-sm). Clicking a chip triggers `onSearch(word)` — strengthens the discovery loop. Section hidden when fewer than 3 themes qualify. Header label includes a "derived from description" caption (NOT a mock badge — this is REAL derived data). Staggered framer-motion entrance. New files: src/components/trueread/themes-analyzer.ts (pure functions: extractThemes), src/components/trueread/themes-cloud.tsx (UI component). Placed in detail view between "About this book" and "Explore related".
+  3. **Book age pill ("Published N years ago")** (detail view, Quick Facts card) — new helper `getBookAge(year)` in reading-insights.ts computes `years = currentYear - bookYear` from the real publishedDate. Returns label: "Published this year" (years=0), "Published 1 year ago" (years=1), "Published N years ago" (years≥2). Returns null for upcoming years or missing year. New "Age" stat row added to the Quick Facts card (Hourglass icon) immediately after the existing "Published: YYYY" row. Verified: book from 2018 shows "Published 8 years ago".
+  4. **Saved books grouped by category** (reading list panel) — new "View: List | By category" segmented toggle at the top of the panel content (below header stats row, above book list). "List" mode = current flat list (default). "By category" mode groups saved books by their first category (or "Uncategorized" if none), sorts groups alphabetically by category name, and renders each group as a `<section>` with a heading row showing the category name + count chip ("Fantasy · 3") followed by the books in that group. Staggered framer-motion entrance for groups. View preference persisted to localStorage key `trueread:reading-list-view:v1`. Toggle hidden when list is empty (empty state shows instead). Existing "Copy all titles" and "Clear" buttons work in both modes. Verified: 4 saved books across Cozy Mysteries, Fantasy, Mysteries & Thrillers, Women Sleuths groups.
+  5. **Cover palette extractor** (detail view, below cover) — extracts 3 dominant colors from the book's REAL cover image via canvas. Loads cover into offscreen `Image()` with `crossOrigin='anonymous'`, draws to 50×60 canvas, reads pixel data, buckets RGB into coarse 32-step buckets, skips near-white/near-black/near-gray pixels (saturation <0.1 or lightness extremes), takes top 3 buckets by count, returns average color of each as hex string. Renders as a small horizontal row of 3 swatches (28×28 rounded-md, ring-1 ring-slate-200) with hex labels below in mono font (text-[10px] text-slate-500). Section label "COVER PALETTE" with Palette icon, matching the Quick Facts label style. Subtle fade-in entrance. Respects prefers-reduced-motion. On ANY error (CORS taint from Apple Books mzstatic.com, network failure, decode error), silently renders null — never throws to parent. Renders only when palette.length === maxColors (no partial palettes). Verified: Golden Curse cover yields #09171E, #1A1F20, #060C15. New file: src/components/trueread/cover-palette.tsx.
+
+- STYLING POLISH (6):
+  1. **Animated result count** — new `useCountUp(target, durationMs=600)` hook in src/components/trueread/use-count-up.ts uses requestAnimationFrame with ease-out cubic to animate from 0 to target. Respects prefers-reduced-motion (returns target immediately). Applied in results-view.tsx to the "About N results" count and the "Showing X–Y of Z" indicator. The Z animates from 0 to the total. Combined with `tabular-nums` to prevent digit-width jitter during animation.
+  2. **Cover image loading shimmer** — modified cover-image.tsx: added internal `loaded` state (false initially, reset when cover URL changes). While `!loaded`, a `.trueread-shimmer` div is shown behind the image; once next/image fires `onLoadingComplete`, the image cross-fades in (`transition-opacity duration-300`, opacity-0 → opacity-100). The shimmer fades out as the image fades in. Skipped entirely when the book has no cover URL (the gradient fallback renders immediately, no shimmer).
+  3. **Hero gradient mesh background** — new `trueread-mesh` keyframe + `.trueread-hero-mesh` utility class in globals.css. Applies a multi-radial-gradient background (blue-50 #EFF6FF, blue-100 #DBEAFE, slate-100 #F1F5F9, white — NO indigo/purple) with very low opacity (~0.4) and slow animation. `prefers-reduced-motion: reduce` disables the animation (static mesh). Added an `absolute inset-0 -z-10 pointer-events-none` div with `.trueread-hero-mesh` to the home hero region in home-view.tsx.
+  4. **Tabular numbers utility** — applied Tailwind's built-in `tabular-nums` class (`font-variant-numeric: tabular-nums`) to all numeric displays to prevent layout shift when digits change: results-view.tsx (result count, Showing X–Y of Z), detail-view.tsx (Quick Facts values: year, pages, read time), ai-breakdown.tsx (breakdown values), reading-list.tsx (READING GOAL progress percentage, book counts), book-card.tsx (year, rating displays).
+  5. **Refined focus rings (consistency)** — new `.trueread-focus` utility class in globals.css: `outline: 2px solid theme(colors.blue.500); outline-offset: 2px; border-radius: inherit;` on `:focus-visible`. Applied to interactive elements that were missing explicit focus-visible styles: suggestion tags in home-view, mood chips in home-view, author links, category chips in detail-view, theme chips in themes-cloud, pace preset chips in pace-calculator. (Elements that already had `focus-visible:ring-2 focus-visible:ring-blue-500` were left alone.)
+  6. **Refined chip hover (inner glow)** — new `.trueread-chip-hover` utility class in globals.css: on hover, applies a subtle inset box-shadow `0 0 0 1px rgba(37, 99, 235, 0.1) inset` + a slight bg tint + smooth transition. Applied additively to suggestion tags, mood chips (icon container gets the glow on hover), and category chips in detail-view. Does NOT break existing hover effects (lift, scale, color shifts).
+
+- KEYBOARD HELP OVERLAY UPDATE:
+  - Added `C` shortcut to the Actions group in keyboard-help.tsx: "Open reading pace calculator (detail view)" with a `Gauge` icon (lucide-react). Verified: pressing `?` opens the overlay and the C shortcut is listed.
+
+- FILES CREATED (5):
+  - src/components/trueread/pace-calculator.tsx (modal with WPM slider, presets, personalized time, localStorage persistence)
+  - src/components/trueread/themes-analyzer.ts (pure text-mining: extractThemes, Theme interface, STOPWORDS set)
+  - src/components/trueread/themes-cloud.tsx (UI: clickable theme chips with count badges, staggered entrance)
+  - src/components/trueread/cover-palette.tsx (canvas-based dominant-color extraction, CORS-safe, graceful failure)
+  - src/components/trueread/use-count-up.ts (requestAnimationFrame count-up hook, reduced-motion aware)
+
+- FILES MODIFIED:
+  - src/components/trueread/detail-view.tsx (integrate all 4 detail features: pace calculator chip + modal + c shortcut + Escape interceptor update, themes cloud section, book age in Quick Facts, cover palette below cover)
+  - src/components/trueread/reading-list.tsx (List | By category view toggle, grouping logic, persisted view preference)
+  - src/components/trueread/results-view.tsx (animated count via useCountUp, tabular-nums)
+  - src/components/trueread/home-view.tsx (hero mesh background div, trueread-chip-hover on suggestion tags + mood chips)
+  - src/components/trueread/cover-image.tsx (loading shimmer with cross-fade)
+  - src/components/trueread/reading-insights.ts (getBookAge helper)
+  - src/components/trueread/keyboard-help.tsx (C shortcut in Actions group, Gauge icon)
+  - src/app/globals.css (trueread-mesh keyframe, .trueread-hero-mesh, .trueread-focus, .trueread-chip-hover utilities)
+
+- VERIFICATION (agent-browser, all passed):
+  - Home: hero mesh background present (.trueread-hero-mesh in DOM) ✓; suggestion tags + mood chips have .trueread-chip-hover ✓
+  - Search "fantasy" → results: count text "About 29 results from Apple Books · Showing 1–24" present, tabular-nums applied ✓
+  - Click "Golden Curse" → detail view: all 4 new features present:
+    - "Custom pace" chip with C kbd hint ✓
+    - "QUICK FACTS" card shows "Published: 2018" + "Age: Published 8 years ago" ✓
+    - "COVER PALETTE" section with 3 hex codes (#09171E, #1A1F20, #060C15) ✓
+    - "Themes & keywords" section with 8 clickable chips (etta ×5, prince ×5, curse ×4, love ×4, enemy ×2, fantasy ×2, gaule ×2, kingdom ×2) + "derived from description" caption ✓
+  - Press `c` → pace calculator modal opens ("Your reading pace" heading, 250 wpm slider, presets, "No page count available" graceful message for Apple Books book) ✓
+  - Press `?` → keyboard help opens; C shortcut listed in Actions group ✓
+  - Reading list panel: "View: List | By category" toggle present ✓; switch to "By category" → 4 books grouped into Cozy Mysteries (1), Fantasy (1), Mysteries & Thrillers (1), Women Sleuths (1), sorted alphabetically ✓
+  - Mobile (iPhone 14, 390x844): pace calculator modal responsive (width 358px, viewport 390px) ✓; themes cloud wraps ✓; cover palette shows ✓; all features present ✓
+  - Console errors: 0 (armed error catcher, ran full flow)
+  - dev.log errors: 0 (only expected Google Books 429 → Apple Books fallback messages)
+  - `bun run lint` → PASS (0 errors, 0 warnings)
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 0 bug fixes (none needed — baseline was clean) + 5 new features + 6 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: pace-calculator.tsx, themes-analyzer.ts, themes-cloud.tsx, cover-palette.tsx, use-count-up.ts.
+- Modified files: detail-view.tsx, reading-list.tsx, results-view.tsx, home-view.tsx, cover-image.tsx, reading-insights.ts, keyboard-help.tsx, globals.css.
+- Screenshots: screenshots/round9-qa-01-home.png, round9-qa-02-detail.png, round9-qa-03-home-with-mesh.png.
+- Continuous review loop still armed (cron 323008, every 15 min).

@@ -31,6 +31,8 @@ import {
   Printer,
   Timer,
   Hourglass,
+  BookCheck,
+  CheckCheck,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -46,12 +48,14 @@ import { MoreFromAuthor } from './more-from-author'
 import { PaceCalculator } from './pace-calculator'
 import { ThemesCloud } from './themes-cloud'
 import { CoverPalette } from './cover-palette'
+import { ReadingDifficultyChip } from './reading-difficulty'
 import { getBreakdown } from './mock-ai'
 import {
   estimateReadingTime,
   getReaderFit,
   getReadingSessions,
   getBookAge,
+  getReadingDifficulty,
 } from './reading-insights'
 import { cn } from '@/lib/utils'
 
@@ -66,6 +70,10 @@ export interface DetailViewProps {
   isBookmarked?: boolean
   /** Toggle bookmark. */
   onToggleBookmark?: (book: Book) => void
+  /** Whether this book has been marked as read. */
+  isRead?: boolean
+  /** Toggle the "read" status (records timestamp in localStorage). */
+  onToggleRead?: (book: Book) => void
   /** Optional toast notifier (used for share feedback). */
   onToast?: (toast: { title: string; description?: string; duration?: number }) => void
   /** Navigate to detail for a different book (used by "More from this author"). */
@@ -126,6 +134,8 @@ export function DetailView({
   onSearch,
   isBookmarked = false,
   onToggleBookmark,
+  isRead = false,
+  onToggleRead,
   onToast,
   onSelectBook,
 }: DetailViewProps) {
@@ -179,6 +189,15 @@ export function DetailView({
     const prev = book.previewSnippet ?? ''
     return desc.length >= prev.length ? desc : prev
   }, [book.description, book.previewSnippet])
+
+  // Reading difficulty — pure local text analysis on the REAL description /
+  // preview text. Returns null when there isn't enough text to compute a
+  // meaningful score (e.g. short Apple Books fallback descriptions). Used to
+  // render the ReadingDifficultyChip below the Quick Facts card.
+  const readingDifficulty = React.useMemo(
+    () => getReadingDifficulty(themesText),
+    [themesText],
+  )
 
   // Print / Save as PDF — opens the browser's native print dialog. Combined
   // with the print CSS in globals.css this produces a clean, distraction-free
@@ -267,6 +286,7 @@ export function DetailView({
   //   `r` → toggle reading mode (only when not typing in an input)
   //   `p` → print / save as PDF (opens the browser's native print dialog)
   //   `c` → open the personalized reading pace calculator
+  //   `m` → toggle "mark as read" status (records timestamp in localStorage)
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
@@ -297,10 +317,15 @@ export function DetailView({
         e.preventDefault()
         setPaceOpen(true)
       }
+      // `m` toggles the "mark as read" status
+      if (e.key === 'm' && onToggleRead) {
+        e.preventDefault()
+        onToggleRead(book)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [book, onToggleBookmark, readingText, handlePrint])
+  }, [book, onToggleBookmark, onToggleRead, readingText, handlePrint])
 
   // Escape interceptor — when an overlay (cover lightbox, reading mode, or
   // the pace calculator) is open, Escape should close ONLY the overlay, not
@@ -424,7 +449,7 @@ export function DetailView({
         <div className="grid gap-8 md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr_300px]">
           {/* Left: cover */}
           <div className="mx-auto w-44 md:mx-0 md:w-full">
-            <div className="relative">
+            <div className="trueread-cover-glow relative">
               <button
                 type="button"
                 onClick={() => setCoverLightboxOpen(true)}
@@ -498,11 +523,22 @@ export function DetailView({
             {book.cover && (
               <CoverPalette coverUrl={book.cover} maxColors={3} />
             )}
+
+            {/* Reading difficulty — computed from the REAL description /
+                preview text via local text analysis (avg word length + avg
+                sentence length). Renders null when the description is too
+                short to compute a meaningful score. Always derived from real
+                text — never fabricated. */}
+            {readingDifficulty && (
+              <div className="mt-4">
+                <ReadingDifficultyChip difficulty={readingDifficulty} />
+              </div>
+            )}
           </div>
 
           {/* Middle: meta + preview */}
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 md:text-4xl">
+            <h1 className="trueread-heading-balance text-3xl font-bold leading-tight tracking-tight text-slate-900 md:text-4xl">
               {book.title}
             </h1>
 
@@ -630,6 +666,33 @@ export function DetailView({
                     </kbd>
                   </button>
                 )}
+                {/* Mark as read chip — toggles read status + records timestamp.
+                    Uses emerald accent (locked palette — no indigo/purple). */}
+                {onToggleRead && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleRead(book)}
+                    className={cn(
+                      'trueread-no-print inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-all active:scale-95',
+                      isRead
+                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100'
+                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:ring-emerald-200',
+                    )}
+                    aria-pressed={isRead}
+                    aria-label={isRead ? 'Mark as not read' : 'Mark as read'}
+                    title={isRead ? 'Mark as not read (M)' : 'Mark as read (M)'}
+                  >
+                    {isRead ? (
+                      <CheckCheck className="size-3.5" strokeWidth={2.25} />
+                    ) : (
+                      <BookCheck className="size-3.5" strokeWidth={2.25} />
+                    )}
+                    {isRead ? 'Read' : 'Mark read'}
+                    <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+                      M
+                    </kbd>
+                  </button>
+                )}
               </div>
             )}
 
@@ -676,7 +739,7 @@ export function DetailView({
                 <button
                   type="button"
                   onClick={() => onSearch(primaryCategory)}
-                  className="group/sim inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                  className="trueread-cta-shine group/sim inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   aria-label={`Find similar books in ${primaryCategory}`}
                 >
                   <Compass className="size-4 transition-transform group-hover/sim:rotate-45" strokeWidth={2.25} />

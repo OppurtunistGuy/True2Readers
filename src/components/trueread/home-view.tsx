@@ -28,6 +28,7 @@ import {
 import { SearchBar } from './search-bar'
 import { SurpriseMe } from './surprise-me'
 import { RecentlyViewed } from './recently-viewed'
+import { QuoteOfTheDay } from './quote-of-the-day'
 import type { Book } from '@/components/trueread/types'
 
 export interface HomeViewProps {
@@ -208,11 +209,11 @@ export function HomeView({
             </div>
             <h1
               id="hero-heading"
-              className="text-center text-4xl font-bold leading-tight tracking-tight text-slate-900 md:text-5xl"
+              className="trueread-heading-balance text-center text-4xl font-bold leading-tight tracking-tight text-slate-900 md:text-5xl"
             >
               What do you want to read?
             </h1>
-            <p className="mt-4 text-center text-lg text-slate-500">
+            <p className="trueread-heading-pretty mt-4 text-center text-lg text-slate-500">
               Search any book title or topic — then understand it in seconds.
             </p>
           </motion.div>
@@ -383,6 +384,11 @@ export function HomeView({
           ))}
         </div>
       </section>
+
+      {/* Quote of the Day — curated real literary quotations (no fabricated
+          book data). Each quote is a real, attributed quote from a published
+          author; clicking the author name triggers an author: search. */}
+      <QuoteOfTheDay onSearch={onSearch} />
 
       {/* How TrueRead works */}
       <section

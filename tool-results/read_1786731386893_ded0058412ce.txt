@@ -1,0 +1,963 @@
+     1→'use client'
+     2→
+     3→import * as React from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  ArrowLeft,
+     7→  Bookmark,
+     8→  Clock,
+     9→  ExternalLink,
+    10→  Gauge,
+    11→  Info,
+    12→  Quote,
+    13→  Share2,
+    14→  Sparkles,
+    15→  Check,
+    16→  BookOpen,
+    17→  User,
+    18→  Search,
+    19→  ChevronDown,
+    20→  ChevronUp,
+    21→  Globe,
+    22→  BookMarked,
+    23→  Calendar,
+    24→  FileText,
+    25→  Star,
+    26→  Maximize2,
+    27→  Minimize2,
+    28→  X,
+    29→  ZoomIn,
+    30→  Compass,
+    31→  Printer,
+    32→  Timer,
+    33→  Hourglass,
+    34→} from 'lucide-react'
+    35→import type { Book, BookSource } from '@/components/trueread/types'
+    36→import { Button } from '@/components/ui/button'
+    37→import { CoverImage } from './cover-image'
+    38→import { AiBreakdown } from './ai-breakdown'
+    39→import { SearchBar } from './search-bar'
+    40→import { StarRating } from './star-rating'
+    41→import { BookmarkButton } from './reading-list'
+    42→import { AuthorLinks } from './author-links'
+    43→import { CoverLightbox } from './cover-lightbox'
+    44→import { ScrollProgress } from './scroll-progress'
+    45→import { MoreFromAuthor } from './more-from-author'
+    46→import { PaceCalculator } from './pace-calculator'
+    47→import { ThemesCloud } from './themes-cloud'
+    48→import { CoverPalette } from './cover-palette'
+    49→import { getBreakdown } from './mock-ai'
+    50→import {
+    51→  estimateReadingTime,
+    52→  getReaderFit,
+    53→  getReadingSessions,
+    54→  getBookAge,
+    55→} from './reading-insights'
+    56→import { cn } from '@/lib/utils'
+    57→
+    58→export interface DetailViewProps {
+    59→  book: Book
+    60→  source?: BookSource
+    61→  /** Label for the back button — "Back to results" (came from grid) or "Back to home" (title search). */
+    62→  backLabel?: string
+    63→  onBack?: () => void
+    64→  onSearch: (q: string) => void
+    65→  /** Whether this book is in the reading list. */
+    66→  isBookmarked?: boolean
+    67→  /** Toggle bookmark. */
+    68→  onToggleBookmark?: (book: Book) => void
+    69→  /** Optional toast notifier (used for share feedback). */
+    70→  onToast?: (toast: { title: string; description?: string; duration?: number }) => void
+    71→  /** Navigate to detail for a different book (used by "More from this author"). */
+    72→  onSelectBook?: (book: Book) => void
+    73→}
+    74→
+    75→/**
+    76→ * Render a Google Books preview snippet that may contain <em>...</em>
+    77→ * highlight tags — without dangerouslySetInnerHTML.
+    78→ */
+    79→function renderSnippet(snippet: string): React.ReactNode {
+    80→  const parts = snippet.split(/(<\/?em>)/)
+    81→  const nodes: React.ReactNode[] = []
+    82→  let highlight = false
+    83→  let key = 0
+    84→  for (const part of parts) {
+    85→    if (part === '<em>') {
+    86→      highlight = true
+    87→    } else if (part === '</em>') {
+    88→      highlight = false
+    89→    } else if (part.length > 0) {
+    90→      if (highlight) {
+    91→        nodes.push(
+    92→          <mark key={key++} className="rounded bg-blue-100 px-0.5 text-blue-900">
+    93→            {part}
+    94→          </mark>,
+    95→        )
+    96→      } else {
+    97→        nodes.push(<React.Fragment key={key++}>{part}</React.Fragment>)
+    98→      }
+    99→    }
+   100→  }
+   101→  return nodes
+   102→}
+   103→
+   104→const VIBE_ICON: Record<string, React.ReactNode> = {
+   105→  light: <Sparkles className="size-3.5" strokeWidth={2.25} />,
+   106→  steady: <Gauge className="size-3.5" strokeWidth={2.25} />,
+   107→  deep: <Bookmark className="size-3.5" strokeWidth={2.25} />,
+   108→  epic: <Bookmark className="size-3.5" strokeWidth={2.25} />,
+   109→}
+   110→
+   111→/** Collapsible categories — show first 3, with a "+N more" expand button. */
+   112→const INITIAL_CATEGORY_COUNT = 3
+   113→
+   114→/**
+   115→ * Book detail view. Large white card with a responsive 3-column layout:
+   116→ * cover | meta+preview | AI breakdown. Collapses to stacked on mobile.
+   117→ *
+   118→ * Includes a "Reading mode" toggle that expands the description to a
+   119→ * distraction-free, larger-text reading view.
+   120→ */
+   121→export function DetailView({
+   122→  book,
+   123→  source = 'google',
+   124→  backLabel = 'Back to results',
+   125→  onBack,
+   126→  onSearch,
+   127→  isBookmarked = false,
+   128→  onToggleBookmark,
+   129→  onToast,
+   130→  onSelectBook,
+   131→}: DetailViewProps) {
+   132→  const [searchValue, setSearchValue] = React.useState('')
+   133→  const [showFullDesc, setShowFullDesc] = React.useState(false)
+   134→  const [showAllCategories, setShowAllCategories] = React.useState(false)
+   135→  const [copied, setCopied] = React.useState(false)
+   136→  const [readingMode, setReadingMode] = React.useState(false)
+   137→  const [coverLightboxOpen, setCoverLightboxOpen] = React.useState(false)
+   138→  const [paceOpen, setPaceOpen] = React.useState(false)
+   139→
+   140→  const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
+   141→
+   142→  const authorsText =
+   143→    book.authors.length > 0 ? book.authors.join(', ') : 'Unknown author'
+   144→
+   145→  const hasPreview =
+   146→    typeof book.previewSnippet === 'string' && book.previewSnippet.length > 0
+   147→  const hasDescription =
+   148→    typeof book.description === 'string' && book.description.length > 0
+   149→
+   150→  // Show the "About this book" block only when there's a real description
+   151→  // AND it adds something beyond the preview snippet (avoid duplication).
+   152→  const showAboutBlock = hasDescription && !hasPreview
+   153→
+   154→  // The text used in reading mode — prefer preview, fall back to description.
+   155→  const readingText = book.previewSnippet ?? book.description ?? null
+   156→
+   157→  // Reading insights — derived from real pageCount + the deterministic mock
+   158→  // breakdown. Both are memoized so they're stable across renders.
+   159→  const breakdown = React.useMemo(() => getBreakdown(book), [book])
+   160→  const readingTime = React.useMemo(
+   161→    () => estimateReadingTime(book.pageCount),
+   162→    [book.pageCount],
+   163→  )
+   164→  const readingSessions = React.useMemo(
+   165→    () => getReadingSessions(book.pageCount),
+   166→    [book.pageCount],
+   167→  )
+   168→  const readerFit = React.useMemo(
+   169→    () => getReaderFit(book, breakdown),
+   170→    [book, breakdown],
+   171→  )
+   172→  // Real book age (years since publication) — null for upcoming books or
+   173→  // when the year can't be parsed. Used in the Quick Facts card.
+   174→  const bookAge = React.useMemo(() => getBookAge(book.year), [book.year])
+   175→  // Source text for the themes & keywords cloud — prefer the longer
+   176→  // description, fall back to the preview snippet.
+   177→  const themesText = React.useMemo(() => {
+   178→    const desc = book.description ?? ''
+   179→    const prev = book.previewSnippet ?? ''
+   180→    return desc.length >= prev.length ? desc : prev
+   181→  }, [book.description, book.previewSnippet])
+   182→
+   183→  // Print / Save as PDF — opens the browser's native print dialog. Combined
+   184→  // with the print CSS in globals.css this produces a clean, distraction-free
+   185→  // printable summary of the current book (cover + title + author + meta +
+   186→  // preview + breakdown). No new route, no server round-trip.
+   187→  const handlePrint = React.useCallback(() => {
+   188→    if (typeof window !== 'undefined' && typeof window.print === 'function') {
+   189→      window.print()
+   190→    } else {
+   191→      onToast?.({
+   192→        title: 'Printing not supported',
+   193→        description: 'Your browser does not support window.print().',
+   194→        duration: 3000,
+   195→      })
+   196→    }
+   197→  }, [onToast])
+   198→
+   199→  const handleCategoryClick = (cat: string) => {
+   200→    onSearch(cat)
+   201→  }
+   202→
+   203→  // Share: copy a shareable text to clipboard. Provides toast feedback on
+   204→  // success AND failure so the user is never left wondering if it worked.
+   205→  // Uses the async Clipboard API when available (HTTPS + user gesture). On
+   206→  // failure, surfaces the text in a toast so the user can read/copy it
+   207→  // manually — no intrusive window.prompt() dialogs.
+   208→  const handleShare = React.useCallback(async () => {
+   209→    const text = `${book.title} by ${authorsText}${book.year ? ` (${book.year})` : ''} — Found via TrueRead`
+   210→    let succeeded = false
+   211→    try {
+   212→      if (navigator.clipboard?.writeText) {
+   213→        await navigator.clipboard.writeText(text)
+   214→        succeeded = true
+   215→      }
+   216→    } catch {
+   217→      succeeded = false
+   218→    }
+   219→    if (succeeded) {
+   220→      setCopied(true)
+   221→      setTimeout(() => setCopied(false), 2000)
+   222→      onToast?.({
+   223→        title: 'Copied to clipboard',
+   224→        description: 'Shareable book reference is on your clipboard.',
+   225→        duration: 2200,
+   226→      })
+   227→    } else {
+   228→      // Graceful fallback: surface the text in a toast so the user can
+   229→      // read it / manually select-and-copy from the notification.
+   230→      onToast?.({
+   231→        title: 'Couldn’t copy automatically',
+   232→        description: text,
+   233→        duration: 5000,
+   234→      })
+   235→    }
+   236→  }, [book.title, book.year, authorsText, onToast])
+   237→
+   238→  // Unique categories for the explore section (deduped, limited)
+   239→  const exploreCategories = React.useMemo(() => {
+   240→    if (!book.categories || book.categories.length === 0) return []
+   241→    return [...new Set(book.categories)].slice(0, 4)
+   242→  }, [book.categories])
+   243→
+   244→  // Visible categories (collapsible)
+   245→  const visibleCategories = React.useMemo(() => {
+   246→    if (!book.categories || book.categories.length === 0) return []
+   247→    return showAllCategories
+   248→      ? book.categories
+   249→      : book.categories.slice(0, INITIAL_CATEGORY_COUNT)
+   250→  }, [book.categories, showAllCategories])
+   251→
+   252→  const hiddenCategoryCount = (book.categories?.length ?? 0) - INITIAL_CATEGORY_COUNT
+   253→
+   254→  // Lock body scroll when reading mode is active
+   255→  React.useEffect(() => {
+   256→    if (readingMode) {
+   257→      const prev = document.body.style.overflow
+   258→      document.body.style.overflow = 'hidden'
+   259→      return () => {
+   260→        document.body.style.overflow = prev
+   261→      }
+   262→    }
+   263→  }, [readingMode])
+   264→
+   265→  // Keyboard shortcuts (detail view only):
+   266→  //   `b` → toggle bookmark (only when not typing in an input)
+   267→  //   `r` → toggle reading mode (only when not typing in an input)
+   268→  //   `p` → print / save as PDF (opens the browser's native print dialog)
+   269→  //   `c` → open the personalized reading pace calculator
+   270→  React.useEffect(() => {
+   271→    const handler = (e: KeyboardEvent) => {
+   272→      const target = e.target as HTMLElement | null
+   273→      const isTyping =
+   274→        !!target &&
+   275→        (target.tagName === 'INPUT' ||
+   276→          target.tagName === 'TEXTAREA' ||
+   277→          target.isContentEditable)
+   278→      if (isTyping || e.metaKey || e.ctrlKey || e.altKey) return
+   279→
+   280→      // `b` toggles bookmark (only when a toggle handler is wired)
+   281→      if (e.key === 'b' && onToggleBookmark) {
+   282→        e.preventDefault()
+   283→        onToggleBookmark(book)
+   284→      }
+   285→      // `r` toggles reading mode (only when there's text to read)
+   286→      if (e.key === 'r' && readingText) {
+   287→        e.preventDefault()
+   288→        setReadingMode((v) => !v)
+   289→      }
+   290→      // `p` opens the browser print dialog (Save as PDF)
+   291→      if (e.key === 'p') {
+   292→        e.preventDefault()
+   293→        handlePrint()
+   294→      }
+   295→      // `c` opens the personalized reading pace calculator
+   296→      if (e.key === 'c') {
+   297→        e.preventDefault()
+   298→        setPaceOpen(true)
+   299→      }
+   300→    }
+   301→    window.addEventListener('keydown', handler)
+   302→    return () => window.removeEventListener('keydown', handler)
+   303→  }, [book, onToggleBookmark, readingText, handlePrint])
+   304→
+   305→  // Escape interceptor — when an overlay (cover lightbox, reading mode, or
+   306→  // the pace calculator) is open, Escape should close ONLY the overlay, not
+   307→  // navigate back. We use the capture phase + stopImmediatePropagation so
+   308→  // this runs BEFORE the page-level Escape handler (bubble phase).
+   309→  React.useEffect(() => {
+   310→    const handler = (e: KeyboardEvent) => {
+   311→      if (e.key !== 'Escape') return
+   312→      if (coverLightboxOpen) {
+   313→        e.stopImmediatePropagation()
+   314→        e.preventDefault()
+   315→        setCoverLightboxOpen(false)
+   316→      } else if (readingMode) {
+   317→        e.stopImmediatePropagation()
+   318→        e.preventDefault()
+   319→        setReadingMode(false)
+   320→      } else if (paceOpen) {
+   321→        e.stopImmediatePropagation()
+   322→        e.preventDefault()
+   323→        setPaceOpen(false)
+   324→      }
+   325→    }
+   326→    window.addEventListener('keydown', handler, { capture: true })
+   327→    return () => window.removeEventListener('keydown', handler, { capture: true })
+   328→  }, [coverLightboxOpen, readingMode, paceOpen])
+   329→
+   330→  // The primary category — used for the "Find similar" CTA.
+   331→  const primaryCategory =
+   332→    book.categories && book.categories.length > 0 ? book.categories[0] : null
+   333→
+   334→  // Build stats for the summary card
+   335→  const stats = React.useMemo(() => {
+   336→    const items: { icon: React.ReactNode; label: string; value: string }[] = []
+   337→    if (book.year) {
+   338→      items.push({
+   339→        icon: <Calendar className="size-3.5" strokeWidth={2.25} />,
+   340→        label: 'Published',
+   341→        value: book.year,
+   342→      })
+   343→    }
+   344→    // Book age — "Published N years ago". Placed IMMEDIATELY after the
+   345→    // Published row so the two facts read together.
+   346→    if (bookAge) {
+   347→      items.push({
+   348→        icon: <Hourglass className="size-3.5" strokeWidth={2.25} />,
+   349→        label: 'Age',
+   350→        value: bookAge.label,
+   351→      })
+   352→    }
+   353→    if (book.publisher) {
+   354→      items.push({
+   355→        icon: <BookMarked className="size-3.5" strokeWidth={2.25} />,
+   356→        label: 'Publisher',
+   357→        value: book.publisher,
+   358→      })
+   359→    }
+   360→    if (book.pageCount != null && book.pageCount > 0) {
+   361→      items.push({
+   362→        icon: <FileText className="size-3.5" strokeWidth={2.25} />,
+   363→        label: 'Pages',
+   364→        value: String(book.pageCount),
+   365→      })
+   366→    }
+   367→    if (readingTime) {
+   368→      items.push({
+   369→        icon: <Clock className="size-3.5" strokeWidth={2.25} />,
+   370→        label: 'Read time',
+   371→        value: readingTime.label.replace('≈ ', ''),
+   372→      })
+   373→    }
+   374→    return items
+   375→  }, [book, readingTime, bookAge])
+   376→
+   377→  return (
+   378→    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
+   379→      {/* Scroll progress bar — slim indicator that fills as the user scrolls */}
+   380→      <ScrollProgress />
+   381→
+   382→      {/* Compact header row */}
+   383→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   384→        <Button
+   385→          type="button"
+   386→          variant="ghost"
+   387→          onClick={onBack}
+   388→          className="h-10 w-fit gap-2 px-3 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+   389→        >
+   390→          <ArrowLeft className="size-4" />
+   391→          {backLabel}
+   392→        </Button>
+   393→
+   394→        <SearchBar
+   395→          value={searchValue}
+   396→          onChange={setSearchValue}
+   397→          onSubmit={onSearch}
+   398→          variant="compact"
+   399→          placeholder="Search again…"
+   400→          className="sm:w-80 md:w-96"
+   401→        />
+   402→      </div>
+   403→
+   404→      {/* Main detail card */}
+   405→      <motion.article
+   406→        initial={{ opacity: 0, y: 16 }}
+   407→        animate={{ opacity: 1, y: 0 }}
+   408→        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+   409→        className="mt-8 rounded-2xl bg-white p-6 trueread-shadow-soft ring-1 ring-slate-200/70 md:p-10"
+   410→      >
+   411→        {source === 'apple' && (
+   412→          <div className="mb-6 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600">
+   413→            <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
+   414→            <p>
+   415→              <span className="font-medium text-slate-800">
+   416→                Google Books is temporarily unavailable
+   417→              </span>{' '}
+   418→              from this environment. Showing real metadata from{' '}
+   419→              <span className="font-medium text-blue-700">Apple Books</span> —
+   420→              no preview text is available for this book.
+   421→            </p>
+   422→          </div>
+   423→        )}
+   424→        <div className="grid gap-8 md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr_300px]">
+   425→          {/* Left: cover */}
+   426→          <div className="mx-auto w-44 md:mx-0 md:w-full">
+   427→            <div className="relative">
+   428→              <button
+   429→                type="button"
+   430→                onClick={() => setCoverLightboxOpen(true)}
+   431→                className="group/cover relative block w-full overflow-hidden rounded-xl transition-all hover:ring-2 hover:ring-blue-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+   432→                aria-label={`Zoom cover of ${book.title}`}
+   433→              >
+   434→                <CoverImage
+   435→                  book={book}
+   436→                  sizes="(max-width: 768px) 176px, 220px"
+   437→                  className="w-full transition-transform duration-300 group-hover/cover:scale-[1.02]"
+   438→                />
+   439→                {/* Zoom hint overlay — appears on hover */}
+   440→                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/0 transition-colors duration-200 group-hover/cover:bg-slate-900/20">
+   441→                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-700 opacity-0 shadow-md backdrop-blur-sm transition-opacity duration-200 group-hover/cover:opacity-100">
+   442→                    <ZoomIn className="size-3.5" strokeWidth={2.25} />
+   443→                    Click to zoom
+   444→                  </span>
+   445→                </div>
+   446→              </button>
+   447→              {/* Bookmark button on cover */}
+   448→              {onToggleBookmark && (
+   449→                <div className="absolute right-2 top-2">
+   450→                  <BookmarkButton
+   451→                    isBookmarked={isBookmarked}
+   452→                    onClick={() => onToggleBookmark(book)}
+   453→                    size="md"
+   454→                    className="shadow-md backdrop-blur-sm"
+   455→                  />
+   456→                </div>
+   457→              )}
+   458→            </div>
+   459→            {/* Star rating below cover */}
+   460→            <div className="mt-3 flex flex-col items-center gap-1">
+   461→              <StarRating
+   462→                rating={book.rating}
+   463→                size="lg"
+   464→                showValue
+   465→                label={source === 'apple' ? 'Apple' : 'Google'}
+   466→              />
+   467→            </div>
+   468→
+   469→            {/* Stats summary card — below the rating. Hidden when fewer than
+   470→                2 facts are available (Apple Books fallback often has only
+   471→                `year` — a single-row card looks sparse). */}
+   472→            {stats.length >= 2 && (
+   473→              <div className="mt-4 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/70">
+   474→                <h3 className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+   475→                  Quick Facts
+   476→                </h3>
+   477→                <dl className="flex flex-col gap-2">
+   478→                  {stats.map((stat, i) => (
+   479→                    <div key={i} className="flex items-center gap-2">
+   480→                      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-white text-blue-500 shadow-sm">
+   481→                        {stat.icon}
+   482→                      </span>
+   483→                      <dt className="text-[11px] text-slate-500">{stat.label}</dt>
+   484→                      <dd className="ml-auto truncate text-xs font-medium tabular-nums text-slate-700" title={stat.value}>
+   485→                        {stat.value}
+   486→                      </dd>
+   487→                    </div>
+   488→                  ))}
+   489→                </dl>
+   490→              </div>
+   491→            )}
+   492→
+   493→            {/* Cover palette — 3 dominant colors extracted client-side from
+   494→                the real cover image. Renders null on CORS failure or when
+   495→                fewer than maxColors could be extracted (Apple Books
+   496→                mzstatic.com may not send CORS headers — that's fine, the
+   497→                section just hides). */}
+   498→            {book.cover && (
+   499→              <CoverPalette coverUrl={book.cover} maxColors={3} />
+   500→            )}
+   501→          </div>
+   502→
+   503→          {/* Middle: meta + preview */}
+   504→          <div className="min-w-0">
+   505→            <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 md:text-4xl">
+   506→              {book.title}
+   507→            </h1>
+   508→
+   509→            {/* Author links — clickable for search */}
+   510→            <AuthorLinks book={book} onSearch={onSearch} />
+   511→
+   512→            {/* Insight chips — reading time (real) + sessions (real math) + reader fit (mock). */}
+   513→            {(readingTime || readerFit) && (
+   514→              <div className="mt-3 flex flex-wrap gap-2">
+   515→                {readingTime && (
+   516→                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium tabular-nums text-blue-700 ring-1 ring-blue-100">
+   517→                    <Clock className="size-3.5" strokeWidth={2.25} />
+   518→                    {readingTime.label}
+   519→                  </span>
+   520→                )}
+   521→                {readingSessions && readingSessions.sessions > 1 && (
+   522→                  <span
+   523→                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-50/60 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100/70 tabular-nums"
+   524→                    title={`Based on ~${readingSessions.minutesPerSession} min per session — real page count`}
+   525→                  >
+   526→                    <Timer className="size-3.5" strokeWidth={2.25} />
+   527→                    {readingSessions.label}
+   528→                  </span>
+   529→                )}
+   530→                {/* Personalized pace calculator — opens a modal where the user
+   531→                    picks their own WPM and sees a personalized read time.
+   532→                    Pure math from the real pageCount. */}
+   533→                <button
+   534→                  type="button"
+   535→                  onClick={() => setPaceOpen(true)}
+   536→                  className="trueread-no-print trueread-chip-hover inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 active:scale-95"
+   537→                  aria-label="Open personalized reading pace calculator"
+   538→                  title="Custom reading pace (C)"
+   539→                >
+   540→                  <Gauge className="size-3.5" strokeWidth={2.25} />
+   541→                  Custom pace
+   542→                  <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+   543→                    C
+   544→                  </kbd>
+   545→                </button>
+   546→                {readerFit && (
+   547→                  <span
+   548→                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+   549→                    title="Mock suggestion — not a real recommendation engine"
+   550→                  >
+   551→                    {VIBE_ICON[readerFit.vibe]}
+   552→                    {readerFit.label}
+   553→                    <span className="ml-0.5 rounded bg-slate-200 px-1 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+   554→                      mock
+   555→                    </span>
+   556→                  </span>
+   557→                )}
+   558→                {/* Reading mode toggle — only if there's text to read */}
+   559→                {readingText && (
+   560→                  <button
+   561→                    type="button"
+   562→                    onClick={() => setReadingMode(true)}
+   563→                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 active:scale-95"
+   564→                    aria-label="Enter reading mode"
+   565→                  >
+   566→                    <Maximize2 className="size-3.5" strokeWidth={2.25} />
+   567→                    Reading mode
+   568→                    <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+   569→                      R
+   570→                    </kbd>
+   571→                  </button>
+   572→                )}
+   573→                {/* Print / Save as PDF — uses the browser's native dialog.
+   574→                    Print CSS in globals.css hides chrome (header, footer,
+   575→                    search bar, chips) so the output is a clean book summary. */}
+   576→                <button
+   577→                  type="button"
+   578→                  onClick={handlePrint}
+   579→                  className="trueread-no-print inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
+   580→                  aria-label="Print or save as PDF"
+   581→                  title="Print / Save as PDF (P)"
+   582→                >
+   583→                  <Printer className="size-3.5" strokeWidth={2.25} />
+   584→                  Print
+   585→                  <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+   586→                    P
+   587→                  </kbd>
+   588→                </button>
+   589→                {/* Share button chip */}
+   590→                <button
+   591→                  type="button"
+   592→                  onClick={handleShare}
+   593→                  className="trueread-no-print inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-800 active:scale-95"
+   594→                  aria-label="Share this book"
+   595→                >
+   596→                  {copied ? (
+   597→                    <>
+   598→                      <Check className="size-3.5 text-green-600" strokeWidth={2.25} />
+   599→                      <span className="text-green-600">Copied!</span>
+   600→                    </>
+   601→                  ) : (
+   602→                    <>
+   603→                      <Share2 className="size-3.5" strokeWidth={2.25} />
+   604→                      Share
+   605→                    </>
+   606→                  )}
+   607→                </button>
+   608→                {/* Bookmark chip with kbd hint — mirrors the cover bookmark button */}
+   609→                {onToggleBookmark && (
+   610→                  <button
+   611→                    type="button"
+   612→                    onClick={() => onToggleBookmark(book)}
+   613→                    className={cn(
+   614→                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-all active:scale-95',
+   615→                      isBookmarked
+   616→                        ? 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100'
+   617→                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200',
+   618→                    )}
+   619→                    aria-pressed={isBookmarked}
+   620→                    aria-label={isBookmarked ? 'Remove from reading list' : 'Add to reading list'}
+   621→                  >
+   622→                    {isBookmarked ? (
+   623→                      <Bookmark className="size-3.5" strokeWidth={2.25} />
+   624→                    ) : (
+   625→                      <Bookmark className="size-3.5" strokeWidth={2} />
+   626→                    )}
+   627→                    {isBookmarked ? 'Saved' : 'Save'}
+   628→                    <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+   629→                      B
+   630→                    </kbd>
+   631→                  </button>
+   632→                )}
+   633→              </div>
+   634→            )}
+   635→
+   636→            {/* Category badges — clickable to trigger a genre search (collapsible) */}
+   637→            {book.categories && book.categories.length > 0 && (
+   638→              <div className="mt-3 flex flex-wrap gap-2">
+   639→                {visibleCategories.map((cat) => (
+   640→                  <button
+   641→                    key={cat}
+   642→                    type="button"
+   643→                    onClick={() => handleCategoryClick(cat)}
+   644→                    className="trueread-chip-hover rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+   645→                    aria-label={`Search more books in ${cat}`}
+   646→                  >
+   647→                    {cat}
+   648→                  </button>
+   649→                ))}
+   650→                {hiddenCategoryCount > 0 && (
+   651→                  <button
+   652→                    type="button"
+   653→                    onClick={() => setShowAllCategories((v) => !v)}
+   654→                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-all hover:bg-blue-100 active:scale-95"
+   655→                    aria-expanded={showAllCategories}
+   656→                  >
+   657→                    {showAllCategories ? (
+   658→                      <>
+   659→                        <ChevronUp className="size-3" strokeWidth={2.5} />
+   660→                        Show less
+   661→                      </>
+   662→                    ) : (
+   663→                      <>
+   664→                        <ChevronDown className="size-3" strokeWidth={2.5} />
+   665→                        +{hiddenCategoryCount} more
+   666→                      </>
+   667→                    )}
+   668→                  </button>
+   669→                )}
+   670→              </div>
+   671→            )}
+   672→
+   673→            {/* Find similar books — primary CTA using the book's first category. */}
+   674→            {primaryCategory && (
+   675→              <div className="mt-4">
+   676→                <button
+   677→                  type="button"
+   678→                  onClick={() => onSearch(primaryCategory)}
+   679→                  className="group/sim inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+   680→                  aria-label={`Find similar books in ${primaryCategory}`}
+   681→                >
+   682→                  <Compass className="size-4 transition-transform group-hover/sim:rotate-45" strokeWidth={2.25} />
+   683→                  Find similar books
+   684→                  <span className="hidden text-blue-200 sm:inline">·</span>
+   685→                  <span className="hidden text-blue-100 sm:inline">
+   686→                    {primaryCategory}
+   687→                  </span>
+   688→                </button>
+   689→              </div>
+   690→            )}
+   691→
+   692→            <hr className="my-6 border-slate-200" />
+   693→
+   694→            {/* Preview section */}
+   695→            <section aria-labelledby="preview-heading">
+   696→              <h2
+   697→                id="preview-heading"
+   698→                className="flex items-center gap-2 text-sm font-semibold text-blue-600"
+   699→              >
+   700→                <Quote className="size-4" strokeWidth={2.25} />
+   701→                {source === 'google' ? 'Preview (from Google Books)' : 'Preview'}
+   702→              </h2>
+   703→
+   704→              {hasPreview ? (
+   705→                <p className="trueread-dropcap mt-3 text-base leading-relaxed text-slate-600">
+   706→                  {renderSnippet(book.previewSnippet!)}
+   707→                </p>
+   708→              ) : (
+   709→                <div className="mt-3 flex items-start gap-3 rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200/70">
+   710→                  <Info className="mt-0.5 size-5 shrink-0 text-slate-400" />
+   711→                  <p className="text-sm text-slate-500">
+   712→                    No preview available for this book.
+   713→                  </p>
+   714→                </div>
+   715→              )}
+   716→
+   717→              {/* Source attribution */}
+   718→              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+   719→                <span className="inline-flex items-center gap-1">
+   720→                  <Globe className="size-3" strokeWidth={2} />
+   721→                  Source: {sourceLabel}
+   722→                </span>
+   723→                {book.previewLink && (
+   724→                  <a
+   725→                    href={book.previewLink}
+   726→                    target="_blank"
+   727→                    rel="noopener noreferrer"
+   728→                    className="inline-flex items-center gap-1 text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+   729→                  >
+   730→                    Open in {sourceLabel}
+   731→                    <ExternalLink className="size-3" />
+   732→                  </a>
+   733→                )}
+   734→              </div>
+   735→            </section>
+   736→
+   737→            {/* Optional About block — only shown when there's no preview */}
+   738→            {showAboutBlock && (
+   739→              <section
+   740→                aria-labelledby="about-heading"
+   741→                className="mt-8 border-t border-slate-200 pt-6"
+   742→              >
+   743→                <h2
+   744→                  id="about-heading"
+   745→                  className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+   746→                >
+   747→                  <BookOpen className="size-4 text-blue-600" strokeWidth={2.25} />
+   748→                  About this book
+   749→                </h2>
+   750→                <p
+   751→                  className={cn(
+   752→                    'trueread-dropcap mt-3 text-sm leading-relaxed text-slate-600',
+   753→                    !showFullDesc && 'line-clamp-4',
+   754→                  )}
+   755→                >
+   756→                  {book.description}
+   757→                </p>
+   758→                <div className="mt-3 flex items-center gap-3">
+   759→                  {book.description && book.description.length > 280 && (
+   760→                    <button
+   761→                      type="button"
+   762→                      onClick={() => setShowFullDesc((v) => !v)}
+   763→                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+   764→                    >
+   765→                      {showFullDesc ? (
+   766→                        <>
+   767→                          <ChevronUp className="size-3" strokeWidth={2.5} />
+   768→                          Show less
+   769→                        </>
+   770→                      ) : (
+   771→                        <>
+   772→                          <ChevronDown className="size-3" strokeWidth={2.5} />
+   773→                          Show more
+   774→                        </>
+   775→                      )}
+   776→                    </button>
+   777→                  )}
+   778→                </div>
+   779→              </section>
+   780→            )}
+   781→
+   782→            {/* Themes & keywords cloud — most frequent meaningful words
+   783→                extracted from the book's real description / preview text.
+   784→                Real derived data, no AI call, no fabrication. The component
+   785→                hides itself when there are fewer than 3 distinct repeating
+   786→                themes (short / no description). */}
+   787→            <ThemesCloud text={themesText} onSearch={onSearch} />
+   788→
+   789→            {/* Explore related genres */}
+   790→            {exploreCategories.length > 0 && (
+   791→              <section
+   792→                aria-label="Explore related topics"
+   793→                className="mt-8 border-t border-slate-200 pt-6"
+   794→              >
+   795→                <div className="mb-3 flex items-center gap-2">
+   796→                  <span className="inline-flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+   797→                    <Sparkles className="size-3.5" strokeWidth={2.25} />
+   798→                  </span>
+   799→                  <h3 className="text-sm font-semibold text-slate-900">
+   800→                    Explore related
+   801→                  </h3>
+   802→                </div>
+   803→                <div className="flex flex-col gap-1.5">
+   804→                  {exploreCategories.map((cat, i) => (
+   805→                    <motion.button
+   806→                      key={cat}
+   807→                      type="button"
+   808→                      onClick={() => onSearch(cat)}
+   809→                      initial={{ opacity: 0, x: -4 }}
+   810→                      animate={{ opacity: 1, x: 0 }}
+   811→                      transition={{ duration: 0.2, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+   812→                      className="group/rel flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-blue-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-[0.98]"
+   813→                      aria-label={`Search books in ${cat}`}
+   814→                    >
+   815→                      <Search className="size-3.5 text-slate-300 transition-colors group-hover/rel:text-blue-400" strokeWidth={2.5} />
+   816→                      <span className="flex-1 text-sm font-medium text-slate-600 transition-colors group-hover/rel:text-blue-700">
+   817→                        {cat}
+   818→                      </span>
+   819→                      <ArrowLeft className="size-3 rotate-180 text-slate-300 transition-colors group-hover/rel:text-blue-400" strokeWidth={2.5} />
+   820→                    </motion.button>
+   821→                  ))}
+   822→                </div>
+   823→              </section>
+   824→            )}
+   825→
+   826→            {/* AI breakdown — visible inline below the middle column on md.
+   827→                On lg+ the grid places it in the right column instead. */}
+   828→            <div className="mt-8 lg:hidden">
+   829→              <AiBreakdown book={book} />
+   830→            </div>
+   831→          </div>
+   832→
+   833→          {/* Right: AI breakdown (lg+ only) */}
+   834→          <aside className="hidden lg:block">
+   835→            <AiBreakdown book={book} />
+   836→          </aside>
+   837→        </div>
+   838→      </motion.article>
+   839→
+   840→      {/* More from this author — real author search, excludes current book.
+   841→          Renders only when the search yields additional results.
+   842→          The data attribute lets the print CSS hide this section (it relies on
+   843→          a live network fetch, which doesn't belong in a printed summary). */}
+   844→      {onSelectBook && (
+   845→        <div
+   846→          className="mx-auto mt-2 w-full max-w-6xl px-4 md:px-6"
+   847→          data-trueread-more-from-author
+   848→        >
+   849→          <MoreFromAuthor book={book} onSelect={onSelectBook} />
+   850→        </div>
+   851→      )}
+   852→
+   853→      {/* Cover lightbox — fullscreen zoom of the book cover */}
+   854→      <CoverLightbox
+   855→        book={book}
+   856→        isOpen={coverLightboxOpen}
+   857→        onClose={() => setCoverLightboxOpen(false)}
+   858→        source={source}
+   859→      />
+   860→
+   861→      {/* Reading mode overlay */}
+   862→      <AnimatePresence>
+   863→        {readingMode && readingText && (
+   864→          <>
+   865→            <motion.div
+   866→              initial={{ opacity: 0 }}
+   867→              animate={{ opacity: 1 }}
+   868→              exit={{ opacity: 0 }}
+   869→              transition={{ duration: 0.25 }}
+   870→              className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-md"
+   871→              onClick={() => setReadingMode(false)}
+   872→              aria-hidden="true"
+   873→            />
+   874→            <motion.div
+   875→              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+   876→              animate={{ opacity: 1, y: 0, scale: 1 }}
+   877→              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+   878→              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+   879→              className="fixed inset-x-4 top-4 z-[61] mx-auto max-h-[calc(100vh-2rem)] max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+   880→              role="dialog"
+   881→              aria-modal="true"
+   882→              aria-labelledby="reading-mode-title"
+   883→            >
+   884→              {/* Header */}
+   885→              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+   886→                <div className="flex min-w-0 items-center gap-3">
+   887→                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+   888→                    <BookOpen className="size-5" strokeWidth={2.25} />
+   889→                  </span>
+   890→                  <div className="min-w-0">
+   891→                    <h2
+   892→                      id="reading-mode-title"
+   893→                      className="truncate text-base font-semibold text-slate-900"
+   894→                      title={book.title}
+   895→                    >
+   896→                      {book.title}
+   897→                    </h2>
+   898→                    <p className="truncate text-xs text-slate-500">
+   899→                      by {authorsText}
+   900→                    </p>
+   901→                  </div>
+   902→                </div>
+   903→                <button
+   904→                  type="button"
+   905→                  onClick={() => setReadingMode(false)}
+   906→                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+   907→                  aria-label="Exit reading mode"
+   908→                >
+   909→                  <Minimize2 className="size-4" strokeWidth={2} />
+   910→                </button>
+   911→              </div>
+   912→
+   913→              {/* Body — scrollable reading content */}
+   914→              <div className="max-h-[calc(100vh-8rem)] overflow-y-auto px-6 py-8 sm:px-10 sm:py-10">
+   915→                <div className="mx-auto max-w-2xl">
+   916→                  {/* Reading time chip */}
+   917→                  {readingTime && (
+   918→                    <div className="mb-6 flex items-center justify-center">
+   919→                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+   920→                        <Clock className="size-3.5" strokeWidth={2.25} />
+   921→                        {readingTime.label} read
+   922→                      </span>
+   923→                    </div>
+   924→                  )}
+   925→                  <p className="trueread-dropcap text-lg leading-relaxed text-slate-700 sm:text-xl sm:leading-relaxed">
+   926→                    {hasPreview ? renderSnippet(book.previewSnippet!) : book.description}
+   927→                  </p>
+   928→                </div>
+   929→              </div>
+   930→
+   931→              {/* Footer */}
+   932→              <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3">
+   933→                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+   934→                  <Globe className="size-3" strokeWidth={2} />
+   935→                  Source: {sourceLabel}
+   936→                  <span aria-hidden="true">·</span>
+   937→                  Press{' '}
+   938→                  <kbd className="rounded border border-slate-200 bg-white px-1 py-0.5 text-[9px] font-semibold text-slate-500">
+   939→                    Esc
+   940→                  </kbd>{' '}
+   941→                  to exit
+   942→                </p>
+   943→              </div>
+   944→            </motion.div>
+   945→          </>
+   946→        )}
+   947→      </AnimatePresence>
+   948→
+   949→      {/* Personalized reading pace calculator — modal where the user picks
+   950→          their own WPM and sees a personalized read time based on the real
+   951→          pageCount. Body scroll locked; Esc closes (intercepted above). */}
+   952→      <PaceCalculator
+   953→        isOpen={paceOpen}
+   954→        onClose={() => setPaceOpen(false)}
+   955→        pageCount={book.pageCount}
+   956→        title={book.title}
+   957→      />
+   958→    </div>
+   959→  )
+   960→}
+   961→
+   962→export default DetailView
+   963→

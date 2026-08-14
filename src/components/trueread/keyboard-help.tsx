@@ -15,6 +15,7 @@ import {
   Grid3X3,
   Printer,
   Gauge,
+  BookCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -82,6 +83,11 @@ const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
         keys: ['C'],
         description: 'Open reading pace calculator (detail view)',
         icon: <Gauge className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['M'],
+        description: 'Mark current book as read / unread (detail view)',
+        icon: <BookCheck className="size-4 text-blue-500" strokeWidth={2} />,
       },
       {
         keys: ['↑', '↓', '←', '→'],
