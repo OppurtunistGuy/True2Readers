@@ -18,12 +18,20 @@ export interface CoverImageProps {
  * - If `book.cover` exists: render next/image (unoptimized so external
  *   Google Books URLs work without domain config), with referrerPolicy
  *   "no-referrer", aspect ratio [2/3], objectFit cover, lazy-loaded.
- *   On hover, the image subtly zooms in.
+ *   While loading, a shimmer placeholder is shown behind the image; once
+ *   loaded, the image cross-fades in. On hover, the image subtly zooms in.
  * - If no cover: render a navy gradient placeholder with the book's title
- *   (truncated) and a BookMarked icon.
+ *   (truncated) and a BookMarked icon. No shimmer (the placeholder is
+ *   synchronous).
  */
 export function CoverImage({ book, className, sizes }: CoverImageProps) {
   const hasCover = typeof book.cover === 'string' && book.cover.length > 0
+  const [loaded, setLoaded] = React.useState(false)
+
+  // Reset the loaded flag when the cover URL changes (different book).
+  React.useEffect(() => {
+    setLoaded(false)
+  }, [book.cover])
 
   if (hasCover) {
     return (
@@ -33,6 +41,14 @@ export function CoverImage({ book, className, sizes }: CoverImageProps) {
           className,
         )}
       >
+        {/* Shimmer placeholder — visible behind the image while it loads.
+            Cross-fades out as the image fades in. */}
+        {!loaded && (
+          <div
+            aria-hidden="true"
+            className="trueread-shimmer absolute inset-0 bg-slate-200 transition-opacity duration-300"
+          />
+        )}
         <Image
           src={book.cover}
           alt={book.title}
@@ -42,7 +58,13 @@ export function CoverImage({ book, className, sizes }: CoverImageProps) {
           referrerPolicy="no-referrer"
           unoptimized
           loading="lazy"
-          className="transition-transform duration-500 group-hover:scale-105"
+          onLoad={() => setLoaded(true)}
+          className={cn(
+            'transition-transform duration-500 group-hover:scale-105',
+            loaded
+              ? 'opacity-100 transition-opacity duration-300'
+              : 'opacity-0 transition-opacity duration-300',
+          )}
         />
         {/* Subtle gradient overlay at bottom for depth */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900/10 to-transparent" />

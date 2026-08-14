@@ -30,6 +30,7 @@ import {
   Compass,
   Printer,
   Timer,
+  Hourglass,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { Button } from '@/components/ui/button'
@@ -42,11 +43,15 @@ import { AuthorLinks } from './author-links'
 import { CoverLightbox } from './cover-lightbox'
 import { ScrollProgress } from './scroll-progress'
 import { MoreFromAuthor } from './more-from-author'
+import { PaceCalculator } from './pace-calculator'
+import { ThemesCloud } from './themes-cloud'
+import { CoverPalette } from './cover-palette'
 import { getBreakdown } from './mock-ai'
 import {
   estimateReadingTime,
   getReaderFit,
   getReadingSessions,
+  getBookAge,
 } from './reading-insights'
 import { cn } from '@/lib/utils'
 
@@ -130,6 +135,7 @@ export function DetailView({
   const [copied, setCopied] = React.useState(false)
   const [readingMode, setReadingMode] = React.useState(false)
   const [coverLightboxOpen, setCoverLightboxOpen] = React.useState(false)
+  const [paceOpen, setPaceOpen] = React.useState(false)
 
   const sourceLabel = source === 'apple' ? 'Apple Books' : 'Google Books'
 
@@ -163,6 +169,16 @@ export function DetailView({
     () => getReaderFit(book, breakdown),
     [book, breakdown],
   )
+  // Real book age (years since publication) — null for upcoming books or
+  // when the year can't be parsed. Used in the Quick Facts card.
+  const bookAge = React.useMemo(() => getBookAge(book.year), [book.year])
+  // Source text for the themes & keywords cloud — prefer the longer
+  // description, fall back to the preview snippet.
+  const themesText = React.useMemo(() => {
+    const desc = book.description ?? ''
+    const prev = book.previewSnippet ?? ''
+    return desc.length >= prev.length ? desc : prev
+  }, [book.description, book.previewSnippet])
 
   // Print / Save as PDF — opens the browser's native print dialog. Combined
   // with the print CSS in globals.css this produces a clean, distraction-free
@@ -250,8 +266,8 @@ export function DetailView({
   //   `b` → toggle bookmark (only when not typing in an input)
   //   `r` → toggle reading mode (only when not typing in an input)
   //   `p` → print / save as PDF (opens the browser's native print dialog)
+  //   `c` → open the personalized reading pace calculator
   React.useEffect(() => {
-    if (!onToggleBookmark && !readingText) return
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       const isTyping =
@@ -276,15 +292,20 @@ export function DetailView({
         e.preventDefault()
         handlePrint()
       }
+      // `c` opens the personalized reading pace calculator
+      if (e.key === 'c') {
+        e.preventDefault()
+        setPaceOpen(true)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [book, onToggleBookmark, readingText, handlePrint])
 
-  // Escape interceptor — when an overlay (cover lightbox or reading mode) is
-  // open, Escape should close ONLY the overlay, not navigate back. We use the
-  // capture phase + stopImmediatePropagation so this runs BEFORE the page-level
-  // Escape handler (which is registered in the bubble phase).
+  // Escape interceptor — when an overlay (cover lightbox, reading mode, or
+  // the pace calculator) is open, Escape should close ONLY the overlay, not
+  // navigate back. We use the capture phase + stopImmediatePropagation so
+  // this runs BEFORE the page-level Escape handler (bubble phase).
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -296,11 +317,15 @@ export function DetailView({
         e.stopImmediatePropagation()
         e.preventDefault()
         setReadingMode(false)
+      } else if (paceOpen) {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+        setPaceOpen(false)
       }
     }
     window.addEventListener('keydown', handler, { capture: true })
     return () => window.removeEventListener('keydown', handler, { capture: true })
-  }, [coverLightboxOpen, readingMode])
+  }, [coverLightboxOpen, readingMode, paceOpen])
 
   // The primary category — used for the "Find similar" CTA.
   const primaryCategory =
@@ -314,6 +339,15 @@ export function DetailView({
         icon: <Calendar className="size-3.5" strokeWidth={2.25} />,
         label: 'Published',
         value: book.year,
+      })
+    }
+    // Book age — "Published N years ago". Placed IMMEDIATELY after the
+    // Published row so the two facts read together.
+    if (bookAge) {
+      items.push({
+        icon: <Hourglass className="size-3.5" strokeWidth={2.25} />,
+        label: 'Age',
+        value: bookAge.label,
       })
     }
     if (book.publisher) {
@@ -338,7 +372,7 @@ export function DetailView({
       })
     }
     return items
-  }, [book, readingTime])
+  }, [book, readingTime, bookAge])
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:py-10">
@@ -447,13 +481,22 @@ export function DetailView({
                         {stat.icon}
                       </span>
                       <dt className="text-[11px] text-slate-500">{stat.label}</dt>
-                      <dd className="ml-auto truncate text-xs font-medium text-slate-700" title={stat.value}>
+                      <dd className="ml-auto truncate text-xs font-medium tabular-nums text-slate-700" title={stat.value}>
                         {stat.value}
                       </dd>
                     </div>
                   ))}
                 </dl>
               </div>
+            )}
+
+            {/* Cover palette — 3 dominant colors extracted client-side from
+                the real cover image. Renders null on CORS failure or when
+                fewer than maxColors could be extracted (Apple Books
+                mzstatic.com may not send CORS headers — that's fine, the
+                section just hides). */}
+            {book.cover && (
+              <CoverPalette coverUrl={book.cover} maxColors={3} />
             )}
           </div>
 
@@ -470,20 +513,36 @@ export function DetailView({
             {(readingTime || readerFit) && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {readingTime && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium tabular-nums text-blue-700 ring-1 ring-blue-100">
                     <Clock className="size-3.5" strokeWidth={2.25} />
                     {readingTime.label}
                   </span>
                 )}
                 {readingSessions && readingSessions.sessions > 1 && (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-50/60 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100/70"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-50/60 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100/70 tabular-nums"
                     title={`Based on ~${readingSessions.minutesPerSession} min per session — real page count`}
                   >
                     <Timer className="size-3.5" strokeWidth={2.25} />
                     {readingSessions.label}
                   </span>
                 )}
+                {/* Personalized pace calculator — opens a modal where the user
+                    picks their own WPM and sees a personalized read time.
+                    Pure math from the real pageCount. */}
+                <button
+                  type="button"
+                  onClick={() => setPaceOpen(true)}
+                  className="trueread-no-print trueread-chip-hover inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 active:scale-95"
+                  aria-label="Open personalized reading pace calculator"
+                  title="Custom reading pace (C)"
+                >
+                  <Gauge className="size-3.5" strokeWidth={2.25} />
+                  Custom pace
+                  <kbd className="ml-0.5 hidden rounded border border-slate-200 bg-slate-50 px-1 text-[9px] font-semibold text-slate-400 sm:inline">
+                    C
+                  </kbd>
+                </button>
                 {readerFit && (
                   <span
                     className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
@@ -582,7 +641,7 @@ export function DetailView({
                     key={cat}
                     type="button"
                     onClick={() => handleCategoryClick(cat)}
-                    className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+                    className="trueread-chip-hover rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
                     aria-label={`Search more books in ${cat}`}
                   >
                     {cat}
@@ -719,6 +778,13 @@ export function DetailView({
                 </div>
               </section>
             )}
+
+            {/* Themes & keywords cloud — most frequent meaningful words
+                extracted from the book's real description / preview text.
+                Real derived data, no AI call, no fabrication. The component
+                hides itself when there are fewer than 3 distinct repeating
+                themes (short / no description). */}
+            <ThemesCloud text={themesText} onSearch={onSearch} />
 
             {/* Explore related genres */}
             {exploreCategories.length > 0 && (
@@ -879,6 +945,16 @@ export function DetailView({
           </>
         )}
       </AnimatePresence>
+
+      {/* Personalized reading pace calculator — modal where the user picks
+          their own WPM and sees a personalized read time based on the real
+          pageCount. Body scroll locked; Esc closes (intercepted above). */}
+      <PaceCalculator
+        isOpen={paceOpen}
+        onClose={() => setPaceOpen(false)}
+        pageCount={book.pageCount}
+        title={book.title}
+      />
     </div>
   )
 }

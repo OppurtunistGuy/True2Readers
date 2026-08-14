@@ -31,6 +31,7 @@ import { BookCard } from './book-card'
 import { SearchBar } from './search-bar'
 import { CompareModal } from './compare-modal'
 import { formatQueryForDisplay, isAuthorSearch } from './query-format'
+import { useCountUp } from './use-count-up'
 import { cn } from '@/lib/utils'
 
 export interface ResultsViewProps {
@@ -93,17 +94,18 @@ function deriveDecades(books: Book[]): { decade: number; label: string; count: n
     .sort((a, b) => a.decade - b.decade)
 }
 
-/** Animated number counter. */
+/** Animated number counter — counts up from 0 to `value` over ~600ms. */
 function AnimatedCount({ value }: { value: number }) {
+  const display = useCountUp(value, 600)
   return (
     <motion.span
       key={value}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="inline-block font-medium text-slate-700"
+      className="inline-block font-medium tabular-nums text-slate-700"
     >
-      {value.toLocaleString()}
+      {display.toLocaleString()}
     </motion.span>
   )
 }
@@ -345,7 +347,7 @@ export function ResultsView({
             {totalItems > 0 && (
               <span className="ml-2 hidden text-xs text-slate-400 sm:inline">
                 · Showing{' '}
-                <span className="font-medium text-slate-500">
+                <span className="tabular-nums font-medium text-slate-500">
                   {(page - 1) * maxResults + 1}–
                   {Math.min(page * maxResults, totalItems)}
                 </span>

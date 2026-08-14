@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Grid3X3,
   Printer,
+  Gauge,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -76,6 +77,11 @@ const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
         keys: ['P'],
         description: 'Print or save as PDF (detail view)',
         icon: <Printer className="size-4 text-blue-500" strokeWidth={2} />,
+      },
+      {
+        keys: ['C'],
+        description: 'Open reading pace calculator (detail view)',
+        icon: <Gauge className="size-4 text-blue-500" strokeWidth={2} />,
       },
       {
         keys: ['↑', '↓', '←', '→'],

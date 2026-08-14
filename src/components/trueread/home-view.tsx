@@ -160,6 +160,14 @@ export function HomeView({
         className="trueread-aurora relative isolate overflow-hidden"
         aria-labelledby="hero-heading"
       >
+        {/* Animated mesh background — very subtle multi-radial gradient
+            drift. Sits behind the hero content; pointer-events-none so it
+            never interferes with the search bar. Respects
+            prefers-reduced-motion (static mesh). */}
+        <div
+          aria-hidden="true"
+          className="trueread-hero-mesh pointer-events-none absolute inset-0 -z-10"
+        />
         {/* Floating decorative accents — subtle, low-opacity book + sparkles */}
         <div
           className="trueread-float-slow pointer-events-none absolute left-[6%] top-[18%] hidden text-blue-100/60 lg:block"
@@ -242,7 +250,7 @@ export function HomeView({
                   key={tag}
                   type="button"
                   onClick={() => handleSuggestion(tag)}
-                  className="trueread-chip-focus group/tag rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:bg-blue-100 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
+                  className="trueread-chip-focus trueread-chip-hover group/tag rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:bg-blue-100 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
                 >
                   <span className="inline-block transition-transform group-hover/tag:translate-x-0.5">
                     {tag}
@@ -270,7 +278,7 @@ export function HomeView({
                     key={q}
                     type="button"
                     onClick={() => handleSuggestion(q)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
+                    className="trueread-chip-hover rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
                   >
                     {q}
                   </button>
@@ -362,7 +370,7 @@ export function HomeView({
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/0 via-blue-50/0 to-blue-100/40 opacity-0 transition-opacity duration-300 group-hover/mood:opacity-100"
               />
-              <span className="relative inline-flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-all duration-300 group-hover/mood:bg-blue-600 group-hover/mood:text-white">
+              <span className="trueread-chip-hover relative inline-flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-all duration-300 group-hover/mood:bg-blue-600 group-hover/mood:text-white">
                 <mood.icon className="size-5" strokeWidth={2} />
               </span>
               <span className="relative text-sm font-semibold text-slate-900">

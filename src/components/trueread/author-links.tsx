@@ -25,7 +25,7 @@ export function AuthorLinks({ book, onSearch }: AuthorLinksProps) {
           key={author}
           type="button"
           onClick={() => onSearch(`author:${author}`)}
-          className="group/author inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200/70 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+          className="trueread-focus group/author inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200/70 transition-all hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
           aria-label={`Search more books by ${author}`}
         >
           <User className="size-3.5 text-slate-400 transition-colors group-hover/author:text-blue-500" strokeWidth={2} />

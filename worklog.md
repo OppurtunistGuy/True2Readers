@@ -559,3 +559,73 @@ Stage Summary:
 - Modified files: reading-insights.ts, home-view.tsx, detail-view.tsx, reading-list.tsx, book-card.tsx, keyboard-help.tsx, page.tsx, globals.css.
 - Screenshots: screenshots/round8-home-with-surprise.png, round8-surprise-result.png, round8-detail-with-sessions.png, round8-home-with-recently-viewed.png, round8-reading-list-panel.png, round8-copy-all-toast.png, round8-kbd-help-with-p.png, round8-mobile-home-full.png.
 - Continuous review loop still armed (cron 323008, every 15 min).
+
+---
+Task ID: 12 (webDevReview round 7)
+Agent: coordinator (manual QA + feature round)
+Task: QA pass + add features and styling polish within the single-page loop (no new routes, no fabricated data, Prototype 2 style locked).
+
+Work Log:
+- Reviewed worklog.md (rounds 1-6 complete and stable; app is real-data with Apple Books fallback active). Verified dev server running, Google Books still 429 (Apple fallback active), no errors. `bun run lint` PASS (0 errors).
+- QA round (agent-browser, desktop 1280x800 + mobile 390x844): home (hero mesh, suggestion tags, mood chips, surprise me, recently viewed all rendering), genre→grid (29 cards), grid→card→detail, back navigation, keyboard help (?), reading list panel. All baseline clean — 0 console errors, 0 dev.log errors.
+- Decision: app is stable → focus on NEW features + styling polish (mandatory requirements).
+- NO BUGS found in this round — baseline is clean.
+
+- NEW FEATURES (5, all real-data, no fabrication):
+  1. **Personalized reading pace calculator** (detail view) — new chip "Custom pace" with Gauge icon + `<kbd>C</kbd>` hint opens a modal dialog. User adjusts a WPM slider (100–600, step 10, default 250) OR clicks a quick preset (Slow 150 / Average 250 / Fast 350 / Speed reader 500). Modal shows personalized reading time computed from the book's REAL pageCount: `minutes = pageCount * (250 / wpm)` (faster WPM → fewer minutes). Also shows derived reading sessions ("≈ N sessions of ~M min") and a comparison line ("Default pace (250 wpm): ~Xh Ym"). Gracefully handles missing pageCount (Apple Books fallback) with a helpful "No page count available for this book — try another title from Google Books for a personalized estimate." message and hides the result. WPM persisted to localStorage key `trueread:pace:v1` (uses existing useLocalStorage hook). Body scroll locked while open; capture-phase Escape interceptor integrated into the existing detail-view Escape handler so Esc closes ONLY the calculator (not the page). `c` keyboard shortcut opens it (documented in keyboard-help overlay). New file: src/components/trueread/pace-calculator.tsx.
+  2. **Themes & keywords analyzer** (detail view) — extracts the top 8 most frequent meaningful words from the book's REAL description/preview text and displays them as clickable search chips. Pure local text mining: tokenize → lowercase → filter length ≥4 → remove built-in English stopword set (articles, conjunctions, prepositions, pronouns, modal verbs + common book-description words like "book", "story", "author") → count frequencies → filter count ≥2 → sort desc → take top 8. Each chip shows the word + a count badge ("× 5"); font size scales slightly with count (text-xs/text-sm). Clicking a chip triggers `onSearch(word)` — strengthens the discovery loop. Section hidden when fewer than 3 themes qualify. Header label includes a "derived from description" caption (NOT a mock badge — this is REAL derived data). Staggered framer-motion entrance. New files: src/components/trueread/themes-analyzer.ts (pure functions: extractThemes), src/components/trueread/themes-cloud.tsx (UI component). Placed in detail view between "About this book" and "Explore related".
+  3. **Book age pill ("Published N years ago")** (detail view, Quick Facts card) — new helper `getBookAge(year)` in reading-insights.ts computes `years = currentYear - bookYear` from the real publishedDate. Returns label: "Published this year" (years=0), "Published 1 year ago" (years=1), "Published N years ago" (years≥2). Returns null for upcoming years or missing year. New "Age" stat row added to the Quick Facts card (Hourglass icon) immediately after the existing "Published: YYYY" row. Verified: book from 2018 shows "Published 8 years ago".
+  4. **Saved books grouped by category** (reading list panel) — new "View: List | By category" segmented toggle at the top of the panel content (below header stats row, above book list). "List" mode = current flat list (default). "By category" mode groups saved books by their first category (or "Uncategorized" if none), sorts groups alphabetically by category name, and renders each group as a `<section>` with a heading row showing the category name + count chip ("Fantasy · 3") followed by the books in that group. Staggered framer-motion entrance for groups. View preference persisted to localStorage key `trueread:reading-list-view:v1`. Toggle hidden when list is empty (empty state shows instead). Existing "Copy all titles" and "Clear" buttons work in both modes. Verified: 4 saved books across Cozy Mysteries, Fantasy, Mysteries & Thrillers, Women Sleuths groups.
+  5. **Cover palette extractor** (detail view, below cover) — extracts 3 dominant colors from the book's REAL cover image via canvas. Loads cover into offscreen `Image()` with `crossOrigin='anonymous'`, draws to 50×60 canvas, reads pixel data, buckets RGB into coarse 32-step buckets, skips near-white/near-black/near-gray pixels (saturation <0.1 or lightness extremes), takes top 3 buckets by count, returns average color of each as hex string. Renders as a small horizontal row of 3 swatches (28×28 rounded-md, ring-1 ring-slate-200) with hex labels below in mono font (text-[10px] text-slate-500). Section label "COVER PALETTE" with Palette icon, matching the Quick Facts label style. Subtle fade-in entrance. Respects prefers-reduced-motion. On ANY error (CORS taint from Apple Books mzstatic.com, network failure, decode error), silently renders null — never throws to parent. Renders only when palette.length === maxColors (no partial palettes). Verified: Golden Curse cover yields #09171E, #1A1F20, #060C15. New file: src/components/trueread/cover-palette.tsx.
+
+- STYLING POLISH (6):
+  1. **Animated result count** — new `useCountUp(target, durationMs=600)` hook in src/components/trueread/use-count-up.ts uses requestAnimationFrame with ease-out cubic to animate from 0 to target. Respects prefers-reduced-motion (returns target immediately). Applied in results-view.tsx to the "About N results" count and the "Showing X–Y of Z" indicator. The Z animates from 0 to the total. Combined with `tabular-nums` to prevent digit-width jitter during animation.
+  2. **Cover image loading shimmer** — modified cover-image.tsx: added internal `loaded` state (false initially, reset when cover URL changes). While `!loaded`, a `.trueread-shimmer` div is shown behind the image; once next/image fires `onLoadingComplete`, the image cross-fades in (`transition-opacity duration-300`, opacity-0 → opacity-100). The shimmer fades out as the image fades in. Skipped entirely when the book has no cover URL (the gradient fallback renders immediately, no shimmer).
+  3. **Hero gradient mesh background** — new `trueread-mesh` keyframe + `.trueread-hero-mesh` utility class in globals.css. Applies a multi-radial-gradient background (blue-50 #EFF6FF, blue-100 #DBEAFE, slate-100 #F1F5F9, white — NO indigo/purple) with very low opacity (~0.4) and slow animation. `prefers-reduced-motion: reduce` disables the animation (static mesh). Added an `absolute inset-0 -z-10 pointer-events-none` div with `.trueread-hero-mesh` to the home hero region in home-view.tsx.
+  4. **Tabular numbers utility** — applied Tailwind's built-in `tabular-nums` class (`font-variant-numeric: tabular-nums`) to all numeric displays to prevent layout shift when digits change: results-view.tsx (result count, Showing X–Y of Z), detail-view.tsx (Quick Facts values: year, pages, read time), ai-breakdown.tsx (breakdown values), reading-list.tsx (READING GOAL progress percentage, book counts), book-card.tsx (year, rating displays).
+  5. **Refined focus rings (consistency)** — new `.trueread-focus` utility class in globals.css: `outline: 2px solid theme(colors.blue.500); outline-offset: 2px; border-radius: inherit;` on `:focus-visible`. Applied to interactive elements that were missing explicit focus-visible styles: suggestion tags in home-view, mood chips in home-view, author links, category chips in detail-view, theme chips in themes-cloud, pace preset chips in pace-calculator. (Elements that already had `focus-visible:ring-2 focus-visible:ring-blue-500` were left alone.)
+  6. **Refined chip hover (inner glow)** — new `.trueread-chip-hover` utility class in globals.css: on hover, applies a subtle inset box-shadow `0 0 0 1px rgba(37, 99, 235, 0.1) inset` + a slight bg tint + smooth transition. Applied additively to suggestion tags, mood chips (icon container gets the glow on hover), and category chips in detail-view. Does NOT break existing hover effects (lift, scale, color shifts).
+
+- KEYBOARD HELP OVERLAY UPDATE:
+  - Added `C` shortcut to the Actions group in keyboard-help.tsx: "Open reading pace calculator (detail view)" with a `Gauge` icon (lucide-react). Verified: pressing `?` opens the overlay and the C shortcut is listed.
+
+- FILES CREATED (5):
+  - src/components/trueread/pace-calculator.tsx (modal with WPM slider, presets, personalized time, localStorage persistence)
+  - src/components/trueread/themes-analyzer.ts (pure text-mining: extractThemes, Theme interface, STOPWORDS set)
+  - src/components/trueread/themes-cloud.tsx (UI: clickable theme chips with count badges, staggered entrance)
+  - src/components/trueread/cover-palette.tsx (canvas-based dominant-color extraction, CORS-safe, graceful failure)
+  - src/components/trueread/use-count-up.ts (requestAnimationFrame count-up hook, reduced-motion aware)
+
+- FILES MODIFIED:
+  - src/components/trueread/detail-view.tsx (integrate all 4 detail features: pace calculator chip + modal + c shortcut + Escape interceptor update, themes cloud section, book age in Quick Facts, cover palette below cover)
+  - src/components/trueread/reading-list.tsx (List | By category view toggle, grouping logic, persisted view preference)
+  - src/components/trueread/results-view.tsx (animated count via useCountUp, tabular-nums)
+  - src/components/trueread/home-view.tsx (hero mesh background div, trueread-chip-hover on suggestion tags + mood chips)
+  - src/components/trueread/cover-image.tsx (loading shimmer with cross-fade)
+  - src/components/trueread/reading-insights.ts (getBookAge helper)
+  - src/components/trueread/keyboard-help.tsx (C shortcut in Actions group, Gauge icon)
+  - src/app/globals.css (trueread-mesh keyframe, .trueread-hero-mesh, .trueread-focus, .trueread-chip-hover utilities)
+
+- VERIFICATION (agent-browser, all passed):
+  - Home: hero mesh background present (.trueread-hero-mesh in DOM) ✓; suggestion tags + mood chips have .trueread-chip-hover ✓
+  - Search "fantasy" → results: count text "About 29 results from Apple Books · Showing 1–24" present, tabular-nums applied ✓
+  - Click "Golden Curse" → detail view: all 4 new features present:
+    - "Custom pace" chip with C kbd hint ✓
+    - "QUICK FACTS" card shows "Published: 2018" + "Age: Published 8 years ago" ✓
+    - "COVER PALETTE" section with 3 hex codes (#09171E, #1A1F20, #060C15) ✓
+    - "Themes & keywords" section with 8 clickable chips (etta ×5, prince ×5, curse ×4, love ×4, enemy ×2, fantasy ×2, gaule ×2, kingdom ×2) + "derived from description" caption ✓
+  - Press `c` → pace calculator modal opens ("Your reading pace" heading, 250 wpm slider, presets, "No page count available" graceful message for Apple Books book) ✓
+  - Press `?` → keyboard help opens; C shortcut listed in Actions group ✓
+  - Reading list panel: "View: List | By category" toggle present ✓; switch to "By category" → 4 books grouped into Cozy Mysteries (1), Fantasy (1), Mysteries & Thrillers (1), Women Sleuths (1), sorted alphabetically ✓
+  - Mobile (iPhone 14, 390x844): pace calculator modal responsive (width 358px, viewport 390px) ✓; themes cloud wraps ✓; cover palette shows ✓; all features present ✓
+  - Console errors: 0 (armed error catcher, ran full flow)
+  - dev.log errors: 0 (only expected Google Books 429 → Apple Books fallback messages)
+  - `bun run lint` → PASS (0 errors, 0 warnings)
+
+Stage Summary:
+- App remains 100% real-data; Prototype 2 visual style unchanged (navy + blue, slate-50, no indigo/purple).
+- 0 bug fixes (none needed — baseline was clean) + 5 new features + 6 styling polish items added within the single-page loop (no new routes, no DB, no accounts, no real AI call, no fabrication).
+- New files: pace-calculator.tsx, themes-analyzer.ts, themes-cloud.tsx, cover-palette.tsx, use-count-up.ts.
+- Modified files: detail-view.tsx, reading-list.tsx, results-view.tsx, home-view.tsx, cover-image.tsx, reading-insights.ts, keyboard-help.tsx, globals.css.
+- Screenshots: screenshots/round9-qa-01-home.png, round9-qa-02-detail.png, round9-qa-03-home-with-mesh.png.
+- Continuous review loop still armed (cron 323008, every 15 min).

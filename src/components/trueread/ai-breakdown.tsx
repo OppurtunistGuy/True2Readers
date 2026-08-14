@@ -75,7 +75,7 @@ function Row({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3, delay: delay + 0.35 }}
-        className="w-20 shrink-0 text-right text-xs font-medium text-slate-500"
+        className="w-20 shrink-0 text-right text-xs font-medium tabular-nums text-slate-500"
       >
         {value.label}
       </motion.span>

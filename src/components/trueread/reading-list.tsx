@@ -5,9 +5,10 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Bookmark,
   BookmarkCheck,
-  BookOpen,
   Clock,
   Copy,
+  FolderTree,
+  LayoutList,
   ListX,
   Sparkles,
   X,
@@ -16,6 +17,7 @@ import type { Book } from '@/components/trueread/types'
 import { CoverImage } from './cover-image'
 import { Button } from '@/components/ui/button'
 import { estimateReadingTime } from './reading-insights'
+import { useLocalStorage } from './use-local-storage'
 import { cn } from '@/lib/utils'
 
 /**
@@ -24,6 +26,8 @@ import { cn } from '@/lib/utils'
  * via MAX_READING_LIST in page.tsx). This is a "goal" indicator, not a limit.
  */
 const READING_LIST_GOAL = 20
+/** localStorage key for the saved view-mode preference. */
+const LS_KEY_VIEW = 'trueread:reading-list-view:v1'
 
 export interface ReadingListProps {
   books: Book[]
@@ -50,6 +54,13 @@ export function ReadingList({
   onToggle,
   onToast,
 }: ReadingListProps) {
+  // View mode: "list" (default — flat list of horizontal cards) or
+  // "category" (grouped by primary category). Persisted to localStorage.
+  const [viewMode, setViewMode] = useLocalStorage<'list' | 'category'>(
+    LS_KEY_VIEW,
+    'list',
+  )
+
   // "Copy all titles" — copies a real, plain-text list of every saved book
   // (title + author + year) to the clipboard. Surfaces a toast on both
   // success and failure so the user always knows what happened.
@@ -88,6 +99,28 @@ export function ReadingList({
   // Progress toward the soft "goal" — capped at 100% for the bar width.
   const progressPct = Math.min(100, (books.length / READING_LIST_GOAL) * 100)
   const goalReached = books.length >= READING_LIST_GOAL
+
+  // Group books by primary category for the "By category" view. Sorted
+  // alphabetically by category name; books with no categories land in an
+  // "Uncategorized" bucket.
+  const grouped = React.useMemo(() => {
+    const map = new Map<string, Book[]>()
+    for (const b of books) {
+      const cat =
+        b.categories && b.categories.length > 0 ? b.categories[0] : 'Uncategorized'
+      const existing = map.get(cat)
+      if (existing) existing.push(b)
+      else map.set(cat, [b])
+    }
+    return Array.from(map.entries())
+      .map(([category, items]) => ({ category, items }))
+      .sort((a, b) => {
+        // Uncategorized always goes last.
+        if (a.category === 'Uncategorized') return 1
+        if (b.category === 'Uncategorized') return -1
+        return a.category.localeCompare(b.category)
+      })
+  }, [books])
 
   return (
     <>
@@ -194,7 +227,7 @@ export function ReadingList({
                   <div className="mt-3">
                     <div className="mb-1 flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-slate-400">
                       <span>{goalReached ? 'Goal reached' : 'Reading goal'}</span>
-                      <span className="text-slate-500">
+                      <span className="tabular-nums text-slate-500">
                         {books.length} / {READING_LIST_GOAL}
                       </span>
                     </div>
@@ -240,12 +273,56 @@ export function ReadingList({
                       <span className="text-xs font-medium text-slate-700">
                         Est. reading time
                       </span>
-                      <span className="ml-auto text-xs font-bold text-blue-700">
+                      <span className="ml-auto text-xs font-bold tabular-nums text-blue-700">
                         {timeLabel}
                       </span>
                     </div>
                   )
                 })()}
+
+                {/* View-mode toggle — List vs. By category. Hidden when the
+                    list is empty (empty state shows instead). Persisted to
+                    localStorage so the user's preference sticks across
+                    sessions. */}
+                {books.length > 0 && (
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                      View
+                    </span>
+                    <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('list')}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all',
+                          viewMode === 'list'
+                            ? 'bg-blue-50 text-blue-600 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600',
+                        )}
+                        aria-label="Show as flat list"
+                        aria-pressed={viewMode === 'list'}
+                      >
+                        <LayoutList className="size-3.5" strokeWidth={2.25} />
+                        List
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('category')}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all',
+                          viewMode === 'category'
+                            ? 'bg-blue-50 text-blue-600 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600',
+                        )}
+                        aria-label="Group by category"
+                        aria-pressed={viewMode === 'category'}
+                      >
+                        <FolderTree className="size-3.5" strokeWidth={2.25} />
+                        By category
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Book list */}
@@ -273,7 +350,7 @@ export function ReadingList({
                       Browse books
                     </button>
                   </div>
-                ) : (
+                ) : viewMode === 'list' ? (
                   <ul className="divide-y divide-slate-100">
                     {books.map((book) => (
                       <li key={book.id} className="group relative px-5 py-3">
@@ -302,7 +379,7 @@ export function ReadingList({
                                 : 'Unknown author'}
                             </p>
                             {book.year && (
-                              <p className="text-xs text-slate-400">
+                              <p className="text-xs tabular-nums text-slate-400">
                                 {book.year}
                               </p>
                             )}
@@ -319,6 +396,85 @@ export function ReadingList({
                       </li>
                     ))}
                   </ul>
+                ) : (
+                  // "By category" view — groups books by their primary
+                  // category, with a section heading + count chip per group.
+                  <div className="flex flex-col gap-4 px-4 py-4">
+                    {grouped.map((group, gi) => {
+                      const headingId = `reading-list-cat-${gi}`
+                      return (
+                        <motion.section
+                          key={group.category}
+                          aria-labelledby={headingId}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.22,
+                            delay: gi * 0.05,
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                        >
+                          <div className="mb-1.5 flex items-center gap-2 px-1">
+                            <h3
+                              id={headingId}
+                              className="truncate text-xs font-semibold uppercase tracking-wide text-slate-500"
+                              title={group.category}
+                            >
+                              {group.category}
+                            </h3>
+                            <span className="inline-flex items-center justify-center rounded-full bg-blue-50 px-1.5 text-[10px] font-bold tabular-nums text-blue-700 ring-1 ring-blue-100">
+                              {group.items.length}
+                            </span>
+                          </div>
+                          <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200/60">
+                            {group.items.map((book) => (
+                              <li key={book.id} className="group relative px-4 py-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onSelect(book)
+                                    onToggle()
+                                  }}
+                                  className="flex w-full items-start gap-3 text-left transition-colors hover:bg-slate-50 rounded-lg p-1 -m-1"
+                                >
+                                  <div className="w-11 shrink-0">
+                                    <CoverImage
+                                      book={book}
+                                      sizes="44px"
+                                      className="w-full"
+                                    />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="line-clamp-2 text-sm font-medium text-slate-900 group-hover:text-blue-700">
+                                      {book.title}
+                                    </p>
+                                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                                      {book.authors.length > 0
+                                        ? book.authors.join(', ')
+                                        : 'Unknown author'}
+                                    </p>
+                                    {book.year && (
+                                      <p className="text-xs tabular-nums text-slate-400">
+                                        {book.year}
+                                      </p>
+                                    )}
+                                  </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onRemove(book.id)}
+                                  className="absolute right-3 top-3 hidden size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:flex"
+                                  aria-label={`Remove ${book.title} from reading list`}
+                                >
+                                  <X className="size-3" strokeWidth={2} />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </motion.section>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
             </motion.aside>

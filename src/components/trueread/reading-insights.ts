@@ -145,3 +145,43 @@ export function getReadingSessions(
       : `${sessions} ${sessionWord} of ~${minutesPerSession} min`
   return { sessions, minutesPerSession, label }
 }
+
+/**
+ * Book "age" — how long ago the book was published, computed from the real
+ * publication year. Returns null for upcoming / current-year books or when
+ * the year can't be parsed.
+ *
+ * Examples:
+ *   year=2018 (current=2025) → { years: 7, label: "Published 7 years ago" }
+ *   year=2024 (current=2025) → { years: 1, label: "Published 1 year ago" }
+ *   year=2025 (current=2025) → { years: 0, label: "Published this year" }
+ *   year=2026 (current=2025) → null (upcoming)
+ */
+export interface BookAge {
+  /** Whole years since publication. 0 = published this year. */
+  years: number
+  /** Human label, e.g. "Published 7 years ago". */
+  label: string
+}
+
+export function getBookAge(
+  year: string | null | undefined,
+): BookAge | null {
+  if (!year) return null
+  // Match the same pattern used by mapVolume in the backend — first 4 digits.
+  const match = /^(\d{4})/.exec(year)
+  if (!match) return null
+  const bookYear = Number.parseInt(match[1], 10)
+  if (!Number.isFinite(bookYear)) return null
+
+  const currentYear = new Date().getFullYear()
+  const years = currentYear - bookYear
+  if (years <= 0) {
+    // 0 → published this year; negative → upcoming (no label yet)
+    return years === 0 ? { years: 0, label: 'Published this year' } : null
+  }
+  if (years === 1) {
+    return { years: 1, label: 'Published 1 year ago' }
+  }
+  return { years, label: `Published ${years} years ago` }
+}
