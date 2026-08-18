@@ -1,17 +1,18 @@
-// Shared types for TrueRead — the single source of truth for the API contract.
-// Both the backend (src/lib/google-books.ts, src/app/api/books/search/route.ts)
-// and the frontend (src/components/trueread/*, src/app/page.tsx) MUST conform to these.
+// Shared types for True2Readers — the single source of truth for the API contract.
 
 export interface Book {
-  /** Google Books volume id */
+  /** Volume / product id */
   id: string
+  /** Primary title (untruncated) */
   title: string
+  /** Subtitle (secondary subtitle text) */
+  subtitle?: string
   authors: string[]
   /** 4-digit year extracted from publishedDate, or null if unknown */
   year: string | null
   /** https cover image URL, or undefined if no cover available */
   cover?: string
-  /** Full book description from Google Books (may be long) */
+  /** Full book description */
   description?: string
   /** Google Books searchInfo.textSnippet — real excerpt text. May contain <em>...</em> highlight tags. */
   previewSnippet?: string
@@ -20,6 +21,26 @@ export interface Book {
   categories?: string[]
   publisher?: string
   pageCount?: number | null
+  /** Legacy primary ISBN string */
+  isbn?: string
+  /** Normalized ISBN-10 */
+  isbn10?: string
+  /** Normalized ISBN-13 */
+  isbn13?: string
+  /** Processed overview ("What this book is about") */
+  overview?: string
+  /** Factual metadata-derived interest highlights ("Why it may interest you") */
+  whyInterest?: string[]
+  /** Open Library edition / work URL if enriched */
+  openLibraryUrl?: string
+  /** Enrichment status tracking */
+  enrichmentStatus?: 'none' | 'partial' | 'complete'
+  /** Internal source provenance */
+  descriptionSource?: 'google' | 'apple' | 'openlibrary'
+  coverSource?: 'google' | 'apple' | 'openlibrary'
+  isbnSource?: 'google' | 'apple' | 'openlibrary'
+  /** Legacy enrichment boolean flag */
+  isEnriched?: boolean
   /** averageRating 1-5 from Google Books, or null */
   rating?: number | null
   /** accessInfo.embeddable */
@@ -29,7 +50,7 @@ export interface Book {
 }
 
 /** Which real data source produced these results. */
-export type BookSource = 'google' | 'apple'
+export type BookSource = 'google' | 'apple' | 'openlibrary' | 'isbndb'
 
 export interface SearchResponse {
   /** The original query string (echoed back) */
@@ -46,13 +67,6 @@ export interface SearchResponse {
   startIndex: number
   /** The maxResults used for this page. */
   maxResults: number
-  /**
-   * The real data source that produced these results.
-   * - 'google' = Google Books API (primary; has preview snippets).
-   * - 'apple'  = Apple Books / iTunes Search API (transparent fallback used only
-   *              when Google Books is environmentally unavailable, e.g. shared-IP
-   *              quota exhaustion. Real metadata + covers, but no preview text →
-   *              detail view shows the spec'd "No preview available" empty state).
-   */
+  /** The primary provider source */
   source: BookSource
 }

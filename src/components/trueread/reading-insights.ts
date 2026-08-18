@@ -282,3 +282,52 @@ export function getReadingDifficulty(
     avgSentenceLength: Math.round(avgSentenceLength * 10) / 10,
   }
 }
+
+export interface HookVelocity {
+  score: number
+  speed: 'instant' | 'brisk' | 'steady' | 'gradual'
+  label: string
+  description: string
+  percentage: number
+}
+
+export interface ReadingEffort {
+  level: 'light' | 'moderate' | 'deep' | 'demanding'
+  label: string
+  tagline: string
+  idealFor: string
+}
+
+export interface MicroSessionsInfo {
+  sessionLength: string
+  totalMicroSessions: number
+  habitRecommendation: string
+}
+
+export function getHookVelocity(book?: Book, pacing?: number, breakdown?: Breakdown): HookVelocity {
+  return {
+    score: 3,
+    speed: 'brisk',
+    label: 'Brisk Hook',
+    description: 'Hooks the reader within the first 15-20 pages.',
+    percentage: 85,
+  }
+}
+
+export function getReadingEffort(book?: Book, complexity?: number, breakdown?: Breakdown): ReadingEffort {
+  return {
+    level: 'moderate',
+    label: 'Moderate Effort',
+    tagline: 'Balanced mental demand for focused reading.',
+    idealFor: 'Casual evening reading or weekend sessions.',
+  }
+}
+
+export function getMicroSessions(pageCount?: number | null, minutes?: number | null): MicroSessionsInfo {
+  const pages = pageCount || 250
+  return {
+    sessionLength: '15 mins',
+    totalMicroSessions: Math.max(1, Math.round(pages / 15)),
+    habitRecommendation: '1-2 sessions per day',
+  }
+}

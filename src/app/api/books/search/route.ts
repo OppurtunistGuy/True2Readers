@@ -1,20 +1,18 @@
 /**
  * GET /api/books/search
  *
- * Route Handler (server-only by default — no `'use client'` / `'use server'`).
- *
  * Query params:
  *   q           (required) search query — title, author, genre, topic, …
  *   startIndex  (optional, default 0, clamped >= 0)
  *   maxResults  (optional, default 24, clamped 1..40)
  *
  * Returns a `SearchResponse` (see `@/components/trueread/types`).
+ * Uses `executeFastSearch()` from provider registry for fast search latency.
  */
 
-import type { SearchResponse, Book } from '@/components/trueread/types'
-import { searchBooksWithFallback, decideMode } from '@/lib/google-books'
+import type { SearchResponse } from '@/components/trueread/types'
+import { executeFastSearch } from '@/lib/providers'
 
-// Help Next.js treat this as always-dynamic (query-driven). Optional but explicit.
 export const dynamic = 'force-dynamic'
 
 function parseIntParam(value: string | null, fallback: number): number {
@@ -45,34 +43,13 @@ export async function GET(request: Request): Promise<Response> {
     if (maxResults < 1) maxResults = 1
     if (maxResults > 40) maxResults = 40
 
-    const { results, totalItems, source } = await searchBooksWithFallback(
+    const searchResponse: SearchResponse = await executeFastSearch(
       q,
       startIndex,
       maxResults,
     )
 
-    let mode: 'title' | 'genre' = 'genre'
-    let bestMatch: Book | null = null
-
-    if (startIndex === 0) {
-      const decision = decideMode(q, results)
-      mode = decision.mode
-      bestMatch = decision.bestMatch
-    }
-    // Pagination (startIndex > 0) always shows the grid.
-
-    const body: SearchResponse = {
-      query: q,
-      mode,
-      bestMatch,
-      results,
-      totalItems,
-      startIndex,
-      maxResults,
-      source,
-    }
-
-    return Response.json(body, {
+    return Response.json(searchResponse, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {
