@@ -50,7 +50,7 @@ export function CoverImage({ book, className, sizes }: CoverImageProps) {
           />
         )}
         <Image
-          src={book.cover || ''}
+          src={book.cover!}
           alt={book.title}
           fill
           sizes={sizes ?? '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'}

@@ -15,6 +15,15 @@ import { KeyboardHelp } from '@/components/trueread/keyboard-help'
 import { useLocalStorage } from '@/components/trueread/use-local-storage'
 import { useToast } from '@/hooks/use-toast'
 import type { Book, BookSource, SearchResponse } from '@/components/trueread/types'
+import { AuthProvider } from '@/components/trueread/auth-context'
+import { AuthModal } from '@/components/trueread/auth-modal'
+import { AuthButton } from '@/components/trueread/auth-button'
+import { NavMenu } from '@/components/trueread/nav-menu'
+import { ReadingIntentView } from '@/components/trueread/reading-intent-view'
+import { IntentResultsView } from '@/components/trueread/intent-results-view'
+import type { UserReadingIntent } from '@/lib/intent-matcher'
+import { Switch } from '@/components/ui/switch'
+import { Bookmark, Compass } from 'lucide-react'
 
 const MAX_RESULTS = 24
 /** Max recent searches persisted to localStorage. */
@@ -31,6 +40,8 @@ const LS_KEY_RECENTLY_VIEWED = 'trueread:recently-viewed:v1'
 const LS_KEY_READ_BOOKS = 'trueread:read-books:v1'
 
 type View =
+  | { name: 'intent' }
+  | { name: 'intent-results'; intent: UserReadingIntent }
   | { name: 'home' }
   | {
       name: 'results'
@@ -51,7 +62,7 @@ interface LastResults {
 }
 
 export default function Page() {
-  const [view, setView] = React.useState<View>({ name: 'home' })
+  const [view, setView] = React.useState<View>({ name: 'intent' })
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   // Recent searches — persisted to localStorage (survives reload).
@@ -107,61 +118,6 @@ export default function Page() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [view])
-
-  // Keyboard shortcuts:
-  //   `/`  → focus the home search box (only when not already typing in an input)
-  //   `Esc`→ go back (detail→results/home, results→home) or close overlays
-  //   `?`  → toggle the keyboard help overlay
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      const isTyping =
-        !!target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-
-      // `/` focuses the home search — but only on the home view, and only
-      // when the user isn't already typing somewhere.
-      if (e.key === '/' && !isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (view.name === 'home' && !keyboardHelpOpen && !readingListOpen) {
-          e.preventDefault()
-          homeSearchRef.current?.focus()
-        }
-      }
-
-      // `?` (Shift + /) toggles the keyboard help overlay — only when not typing.
-      if (
-        (e.key === '?' || (e.key === '/' && e.shiftKey)) &&
-        !isTyping &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey
-      ) {
-        e.preventDefault()
-        setKeyboardHelpOpen((v) => !v)
-      }
-
-      // `Escape` navigates back (or closes overlays).
-      if (e.key === 'Escape' && !isTyping) {
-        if (keyboardHelpOpen) {
-          e.preventDefault()
-          setKeyboardHelpOpen(false)
-        } else if (readingListOpen) {
-          e.preventDefault()
-          setReadingListOpen(false)
-        } else if (view.name === 'detail') {
-          e.preventDefault()
-          handleBackFromDetail()
-        } else if (view.name === 'results') {
-          e.preventDefault()
-          handleBackFromResults()
-        }
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [view, readingListOpen, keyboardHelpOpen])
 
   // Push a query onto the recent-searches list (deduped, most-recent-first).
   const pushRecent = React.useCallback((q: string) => {
@@ -365,72 +321,113 @@ export default function Page() {
   const handleBackFromResults = React.useCallback(() => {
     lastResultsRef.current = null
     setError(null)
-    setView({ name: 'home' })
+    setView({ name: 'intent' })
   }, [])
 
   const handleLogoClick = React.useCallback(() => {
     lastResultsRef.current = null
     setError(null)
+    setView({ name: 'intent' })
+  }, [])
+
+  const handleIntentSubmit = React.useCallback((intent: UserReadingIntent) => {
+    setView({ name: 'intent-results', intent })
+  }, [])
+
+  const handleSkipToSearch = React.useCallback(() => {
     setView({ name: 'home' })
+  }, [])
+
+  const handleAdjustIntent = React.useCallback(() => {
+    setView({ name: 'intent' })
   }, [])
 
   const handleClearRecent = React.useCallback(() => {
     setRecentSearches([])
   }, [])
 
+  const [isAdultMode, setIsAdultMode] = React.useState(false)
+
   // A stable key per view for AnimatePresence exit animations.
   const viewKey =
-    view.name === 'results'
-      ? `results-${view.query}-${view.page}`
-      : view.name === 'detail'
-        ? `detail-${view.book.id}`
-        : 'home'
+    view.name === 'intent'
+      ? 'intent'
+      : view.name === 'intent-results'
+        ? `intent-results-${view.intent.feel.join('-')}`
+        : view.name === 'results'
+          ? `results-${view.query}-${view.page}`
+          : view.name === 'detail'
+            ? `detail-${view.book.id}`
+            : 'home'
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900">
-      {/* Search progress bar */}
-      <SearchProgress isLoading={isLoading} />
+    <AuthProvider>
+      <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900">
+        {/* Search progress bar */}
+        <SearchProgress isLoading={isLoading} />
 
-      {/* Global sticky header — glass morphism */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/70 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
-          <Logo size="md" onClick={handleLogoClick} />
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Reading list badge in header */}
-            {readingList.length > 0 && (
+        {/* Global sticky header — glass morphism */}
+        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl shadow-2xs">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+            <Logo size="md" onClick={handleLogoClick} />
+            <div className="flex items-center gap-2.5 sm:gap-4">
+              {/* Reading Mood Match Quick Button */}
+              <button
+                type="button"
+                onClick={() => setView({ name: 'intent' })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/70 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all hover:bg-blue-100/80 shadow-2xs active:scale-95"
+              >
+                <Compass className="size-3.5 text-blue-600" />
+                <span>Reading Mood</span>
+              </button>
+
+              {/* Sign In Button */}
+              <AuthButton />
+
+              {/* Saved Books button */}
               <button
                 type="button"
                 onClick={() => setReadingListOpen(true)}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
-                aria-label={`Reading list: ${readingList.length} ${readingList.length === 1 ? 'book' : 'books'}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 shadow-2xs active:scale-95"
+                aria-label={`Saved books: ${readingList.length}`}
               >
-                <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
-                  {readingList.length}
-                </span>
-                Reading List
+                <Bookmark className="size-3.5 text-slate-500" />
+                <span>Saved Books</span>
+                {readingList.length > 0 && (
+                  <span className="ml-0.5 inline-flex size-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                    {readingList.length}
+                  </span>
+                )}
               </button>
-            )}
-            {/* Keyboard help button */}
-            <button
-              type="button"
-              onClick={() => setKeyboardHelpOpen(true)}
-              className="inline-flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
-              aria-label="Show keyboard shortcuts"
-              title="Keyboard shortcuts (?)"
-            >
-              <kbd className="text-xs font-semibold">?</kbd>
-            </button>
-            <Badge
-              variant="outline"
-              className="hidden border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 md:inline-flex"
-            >
-              Powered by Google Books API
-            </Badge>
-          </div>
-        </div>
-      </header>
 
-      {/* Main view — animated transitions between home/results/detail */}
+              {/* 18+ Mode Toggle */}
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <span>18+ Mode</span>
+                <Switch
+                  checked={isAdultMode}
+                  onCheckedChange={setIsAdultMode}
+                  aria-label="Toggle 18+ Mode"
+                />
+              </div>
+
+              {/* Keyboard Help (?) Button */}
+              <button
+                type="button"
+                onClick={() => setKeyboardHelpOpen(true)}
+                className="inline-flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95 shadow-2xs"
+                aria-label="Show keyboard shortcuts"
+                title="Help & Shortcuts (?)"
+              >
+                <span className="text-xs font-bold font-mono">?</span>
+              </button>
+
+              {/* Hamburger Menu Dropdown & Modal */}
+              <NavMenu onOpenKeyboardHelp={() => setKeyboardHelpOpen(true)} />
+            </div>
+          </div>
+        </header>
+
+      {/* Main view — animated transitions between intent/intent-results/home/results/detail */}
       <main className="flex-1">
         <AnimatePresence mode="wait">
           <motion.div
@@ -440,6 +437,23 @@ export default function Page() {
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
+            {view.name === 'intent' && (
+              <ReadingIntentView
+                onSubmitIntent={handleIntentSubmit}
+                onSkipToSearch={handleSkipToSearch}
+              />
+            )}
+
+            {view.name === 'intent-results' && (
+              <IntentResultsView
+                intent={view.intent}
+                onSelectBook={handleSelectBook}
+                onAdjustIntent={handleAdjustIntent}
+                onDirectSearch={(q) => handleSearch(q, 1)}
+                isLoading={isLoading}
+              />
+            )}
+
             {view.name === 'home' && (
               <HomeView
                 onSearch={handleSearch}
@@ -479,7 +493,7 @@ export default function Page() {
                 book={view.book}
                 source={view.source}
                 backLabel={
-                  lastResultsRef.current ? 'Back to results' : 'Back to home'
+                  lastResultsRef.current ? 'Back to results' : 'Back to mood discovery'
                 }
                 onBack={handleBackFromDetail}
                 onSearch={(q) => handleSearch(q, 1)}
@@ -519,6 +533,10 @@ export default function Page() {
         isOpen={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
       />
+
+      {/* Global Auth Modal */}
+      <AuthModal />
     </div>
+    </AuthProvider>
   )
 }

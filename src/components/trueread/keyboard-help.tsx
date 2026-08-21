@@ -161,7 +161,7 @@ export function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
                       Keyboard Shortcuts
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Navigate TrueRead faster
+                      Navigate True2Readers faster
                     </p>
                   </div>
                 </div>

@@ -284,50 +284,31 @@ export function getReadingDifficulty(
 }
 
 export interface HookVelocity {
-  score: number
-  speed: 'instant' | 'brisk' | 'steady' | 'gradual'
+  speed: 'instant' | 'brisk' | 'medium' | 'slow'
   label: string
   description: string
-  percentage: number
 }
 
 export interface ReadingEffort {
-  level: 'light' | 'moderate' | 'deep' | 'demanding'
+  level: 'light' | 'moderate' | 'deep' | 'intense'
   label: string
-  tagline: string
-  idealFor: string
+  description: string
 }
 
 export interface MicroSessionsInfo {
-  sessionLength: string
-  totalMicroSessions: number
-  habitRecommendation: string
+  formattedMinutes: string
+  label: string
 }
 
-export function getHookVelocity(book?: Book, pacing?: number, breakdown?: Breakdown): HookVelocity {
-  return {
-    score: 3,
-    speed: 'brisk',
-    label: 'Brisk Hook',
-    description: 'Hooks the reader within the first 15-20 pages.',
-    percentage: 85,
-  }
+export function getHookVelocity(_book: Book): HookVelocity {
+  return { speed: 'brisk', label: 'Brisk Hook', description: 'Grips reader in first 20 pages' }
 }
 
-export function getReadingEffort(book?: Book, complexity?: number, breakdown?: Breakdown): ReadingEffort {
-  return {
-    level: 'moderate',
-    label: 'Moderate Effort',
-    tagline: 'Balanced mental demand for focused reading.',
-    idealFor: 'Casual evening reading or weekend sessions.',
-  }
+export function getReadingEffort(_book: Book): ReadingEffort {
+  return { level: 'moderate', label: 'Moderate Focus', description: 'Balanced cognitive load' }
 }
 
-export function getMicroSessions(pageCount?: number | null, minutes?: number | null): MicroSessionsInfo {
-  const pages = pageCount || 250
-  return {
-    sessionLength: '15 mins',
-    totalMicroSessions: Math.max(1, Math.round(pages / 15)),
-    habitRecommendation: '1-2 sessions per day',
-  }
+export function getMicroSessions(pageCount: number | null | undefined): MicroSessionsInfo {
+  const mins = pageCount ? Math.round(pageCount * 0.8) : 120
+  return { formattedMinutes: `${mins} min`, label: '15-min daily sessions' }
 }

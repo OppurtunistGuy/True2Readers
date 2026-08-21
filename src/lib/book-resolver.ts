@@ -45,48 +45,63 @@ export function extractOverview(description?: string): string {
     return ''
   }
 
-  // 1. Strip HTML tags and decode entities
+  // 1. Strip HTML tags and decode HTML entities (including &#xa0; / &nbsp;)
   let clean = description
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<\/p>/gi, ' ')
     .replace(/<[^>]*>/g, '')
+    .replace(/&#xa0;/gi, ' ')
+    .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&rdquo;/g, '"')
+    .replace(/&ldquo;/g, '"')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
 
-  // 2. Remove common marketing fluff & promotional boilerplate phrases
+  // 2. Remove common marketing fluff & promotional call-to-action boilerplate
   clean = clean
-    .replace(/(#1\s+)?(NEW YORK TIMES|INSTANT|GLOBAL|USA TODAY|SUNDAY TIMES|WALL STREET JOURNAL)\s+BESTSELLER[s]?/gi, '')
-    .replace(/OVER\s+[\d,]+\s+MILLION\s+COPIES\s+SOLD/gi, '')
+    .replace(/(#1\s+)?(NEW YORK TIMES|INSTANT|GLOBAL|USA TODAY|SUNDAY TIMES|WALL STREET JOURNAL)\s+BESTSELLER[.\!\?]?/gi, '')
+    .replace(/OVER\s+[\d,]+\s+MILLION\s+COPIES\s+SOLD[.\!\?]?/gi, '')
+    .replace(/TRANSLATED\s+INTO\s+\d+\+\s+LANGUAGES[.\!\?]?/gi, '')
+    .replace(/An\s+addicting[^\.\!\?]+read,?\s*/gi, '')
+    .replace(/see\s+why\s+fans\s+of[^\.\!\?]+\s*/gi, '')
+    .replace(/Get\s+lost\s+in[^\.\!\?]+\./gi, '')
+    .replace(/Are\s+you\s+ready\?[^\.\!\?]*$/gi, '')
+    .replace(/Scroll\s+up\s+to\s+click[^\.\!\?]*$/gi, '')
     .replace(/WINNER\s+OF\s+THE\s+[^\.\!\?]+\./gi, '')
     .replace(/Praise\s+for\s+[^\.\!\?]+\./gi, '')
     .replace(/\"[^\"]+\"\s*—[^\.\!\?]+/g, '')
+    .replace(/^[.\s!?,:;]+/, '')
     .replace(/\s+/g, ' ')
     .trim()
 
   if (clean.length === 0) return ''
 
-  // 3. Word count targeting (80 to 120 words)
+  // 3. Word count targeting for a concise 3–4 line summary (max 55 words)
   const words = clean.split(' ')
-  if (words.length <= 120) {
+  if (words.length <= 55) {
     return clean
   }
 
-  // Slice to ~100 words and find the nearest sentence boundary (. ! ?)
-  const slicedText = words.slice(0, 110).join(' ')
+  // Slice to ~50 words and find the nearest sentence boundary (. ! ?)
+  const slicedText = words.slice(0, 52).join(' ')
   const lastPeriodIndex = Math.max(
     slicedText.lastIndexOf('.'),
     slicedText.lastIndexOf('!'),
     slicedText.lastIndexOf('?')
   )
 
-  if (lastPeriodIndex > 150) {
+  if (lastPeriodIndex > 100) {
     return slicedText.slice(0, lastPeriodIndex + 1).trim()
   }
 
-  return words.slice(0, 95).join(' ').trim() + '.'
+  return words.slice(0, 48).join(' ').trim() + '...'
 }
 
 /**
@@ -100,29 +115,29 @@ export function generateWhyInterest(book: Book): string[] {
 
   // Category / Theme rules
   if (cats.includes('self-help') || cats.includes('personal development') || cats.includes('psychology')) {
-    points.push('Practical framework — Focuses on actionable systems and repeatable habits.')
-    points.push('Action-oriented — Emphasizes applying core concepts directly to daily routines.')
-  } else if (cats.includes('fiction') || cats.includes('fantasy') || cats.includes('sci-fi') || cats.includes('science fiction') || cats.includes('classics')) {
-    points.push('A journey of self-discovery — Explores purpose, intuition, and the courage to follow your path.')
-    points.push('Timeless and inspiring — A simple yet profound story that has touched millions across generations.')
+    points.push('Practical framework — focuses on actionable systems and repeatable habits.')
+    points.push('Action-oriented — emphasizes applying core concepts directly to daily routines.')
+  } else if (cats.includes('fiction') || cats.includes('fantasy') || cats.includes('sci-fi') || cats.includes('science fiction')) {
+    points.push('Immersive world-building — narrative driven by rich atmospheric settings.')
+    points.push('Character-driven — explores complex motivations and internal conflicts.')
   } else if (cats.includes('history') || cats.includes('biography') || cats.includes('autobiography') || cats.includes('memoir')) {
-    points.push('Historical narrative — Detailed account based on documented events and sources.')
-    points.push('Contextual depth — Offers perspective on pivotal eras and personal journeys.')
+    points.push('Historical narrative — detailed account based on documented events and sources.')
+    points.push('Contextual depth — offers perspective on pivotal eras and personal journeys.')
   } else if (cats.includes('business') || cats.includes('economics') || cats.includes('finance') || cats.includes('management')) {
-    points.push('Strategic insights — Structured around real-world industry concepts.')
-    points.push('Decision framework — Provides practical guidelines for professional execution.')
+    points.push('Strategic insights — structured around real-world industry concepts.')
+    points.push('Decision framework — provides practical guidelines for professional execution.')
   } else {
-    points.push('Structured breakdown — Organized into clear chapters for steady reading.')
-    points.push('Focused scope — Targeted exploration of core themes and concepts.')
+    points.push('Structured breakdown — organized into clear chapters for steady reading.')
+    points.push('Focused scope — targeted exploration of core themes and concepts.')
   }
 
   // Length / Pace rules
   if (book.pageCount && book.pageCount < 220) {
-    points.push('Accessible and thoughtful — Short, easy to read, and full of ideas that stay with you long after.')
+    points.push('Accessible format — concise volume designed for fast completion in 1–2 sittings.')
   } else if (book.pageCount && book.pageCount > 400) {
-    points.push('In-depth exploration — Comprehensive coverage with extensive details.')
+    points.push('In-depth exploration — comprehensive coverage with extensive details.')
   } else {
-    points.push('Balanced prose — Suitable for both casual reading and focused study.')
+    points.push('Balanced prose — suitable for both casual reading and focused study.')
   }
 
   return points.slice(0, 3)

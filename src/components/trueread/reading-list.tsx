@@ -106,7 +106,7 @@ export function ReadingList({
       const year = b.year ? ` (${b.year})` : ''
       return `${i + 1}. ${b.title} — ${author}${year}`
     })
-    const text = `My TrueRead reading list (${books.length} book${books.length !== 1 ? 's' : ''}):\n\n${lines.join('\n')}`
+    const text = `My True2Readers reading list (${books.length} book${books.length !== 1 ? 's' : ''}):\n\n${lines.join('\n')}`
     let succeeded = false
     try {
       if (navigator.clipboard?.writeText) {

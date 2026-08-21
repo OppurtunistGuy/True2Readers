@@ -141,9 +141,9 @@ export async function POST(
 
     const feedback = await db.bookStyleFeedback.upsert({
       where: {
-        userId_bookId: {
-          userId: payload.userId,
+        bookId_userId: {
           bookId,
+          userId: payload.userId,
         },
       },
       update: {

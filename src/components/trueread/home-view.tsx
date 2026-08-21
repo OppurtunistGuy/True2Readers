@@ -189,32 +189,21 @@ export function HomeView({
           <BookOpen className="size-20" strokeWidth={1} />
         </div>
 
-        <div className="relative mx-auto w-full max-w-3xl px-4 py-16 md:py-24">
+        <div className="relative mx-auto w-full max-w-3xl px-4 py-12 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="mb-5 flex items-center justify-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1 text-xs font-medium text-blue-700">
-                <Sparkles className="size-3.5" strokeWidth={2.25} />
-                Understand any book in seconds
-              </span>
-              {readingListCount > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-                  <Library className="size-3.5 text-blue-500" strokeWidth={2.25} />
-                  {readingListCount} in your list
-                </span>
-              )}
-            </div>
             <h1
               id="hero-heading"
-              className="trueread-heading-balance text-center text-4xl font-bold leading-tight tracking-tight text-slate-900 md:text-5xl"
+              className="text-center text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-5xl lg:text-6xl"
             >
-              What do you want to read?
+              Understand any book <br />
+              <span className="text-blue-600">in seconds.</span>
             </h1>
-            <p className="trueread-heading-pretty mt-4 text-center text-lg text-slate-500">
-              Search any book title or topic — then understand it in seconds.
+            <p className="mt-4 text-center text-base sm:text-lg font-medium text-slate-500">
+              Find a book. Get key insights. Decide what’s worth your time.
             </p>
           </motion.div>
 
@@ -230,7 +219,7 @@ export function HomeView({
               onSubmit={handleSubmit}
               isLoading={isLoading}
               variant="hero"
-              placeholder="Search for a book title or topic…"
+              placeholder="Search by title, author, ISBN, or topic..."
               inputRef={searchInputRef}
               showHint
               recentSearches={recentSearches}
@@ -242,266 +231,42 @@ export function HomeView({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center"
+            className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-slate-500"
           >
-            <span className="text-sm text-slate-500">Try searching:</span>
-            <div className="flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((tag) => (
+            <span className="font-medium">Try:</span>
+            {['Atomic Habits', 'The Alchemist', 'Fantasy', 'Mystery'].map((tag, idx, arr) => (
+              <React.Fragment key={tag}>
                 <button
-                  key={tag}
                   type="button"
                   onClick={() => handleSuggestion(tag)}
-                  className="trueread-chip-focus trueread-chip-hover group/tag rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm transition-all hover:bg-blue-100 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
+                  className="rounded-full bg-blue-50/90 px-3 py-1 font-semibold text-blue-600 hover:bg-blue-100 transition-colors focus:outline-none"
                 >
-                  <span className="inline-block transition-transform group-hover/tag:translate-x-0.5">
-                    {tag}
-                  </span>
+                  {tag}
                 </button>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Recent searches (in-memory, session-only) */}
-          {recentSearches.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, delay: 0.25 }}
-              className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center"
-            >
-              <span className="inline-flex items-center gap-1 text-sm text-slate-500">
-                <Clock3 className="size-3.5" strokeWidth={2} />
-                Recent:
-              </span>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {recentSearches.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => handleSuggestion(q)}
-                    className="trueread-chip-hover rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-95"
-                  >
-                    {q}
-                  </button>
-                ))}
-                {onClearRecent && (
-                  <button
-                    type="button"
-                    onClick={onClearRecent}
-                    aria-label="Clear recent searches"
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-slate-400 transition-colors hover:text-slate-600"
-                  >
-                    <RotateCcw className="size-3" strokeWidth={2} />
-                    Clear
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Surprise me — secondary CTA under the search. Picks a random real
-              genre and runs the existing search pipeline. */}
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
-            className="mt-8 flex justify-center"
-          >
-            <SurpriseMe onSearch={onSearch} disabled={isLoading} variant="hero" />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Recently viewed — horizontal strip of books the user already opened.
-          Hidden entirely when empty (no empty state needed for an ambient
-          recollection surface). */}
-      {recentlyViewed.length > 0 && onSelectBook && (
-        <RecentlyViewed
-          books={recentlyViewed}
-          onSelect={onSelectBook}
-          onClear={onClearRecentlyViewed}
-          onRemove={onRemoveRecentlyViewed}
-        />
-      )}
-
-      {/* Mood Match — quick-pick mood chips mapping to real genre searches */}
-      <section
-        className="mx-auto w-full max-w-5xl px-4 py-12 md:py-16"
-        aria-labelledby="mood-heading"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="text-center"
-        >
-          <h2
-            id="mood-heading"
-            className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
-          >
-            Match your mood
-          </h2>
-          <p className="mt-2 text-center text-sm text-slate-500">
-            Pick a feeling — we&rsquo;ll search real books that fit.
-          </p>
-        </motion.div>
-
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {MOODS.map((mood, i) => (
-            <motion.button
-              key={mood.label}
-              type="button"
-              onClick={() => handleSuggestion(mood.query)}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-30px' }}
-              transition={{
-                duration: 0.32,
-                delay: i * 0.04,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              whileHover={{ y: -3 }}
-              whileTap={{ scale: 0.97 }}
-              className="group/mood relative flex flex-col items-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
-              aria-label={`Search ${mood.query} — ${mood.hint}`}
-            >
-              {/* Subtle gradient wash on hover — locked to navy/blue palette */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/0 via-blue-50/0 to-blue-100/40 opacity-0 transition-opacity duration-300 group-hover/mood:opacity-100"
-              />
-              <span className="trueread-chip-hover relative inline-flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-all duration-300 group-hover/mood:bg-blue-600 group-hover/mood:text-white">
-                <mood.icon className="size-5" strokeWidth={2} />
-              </span>
-              <span className="relative text-sm font-semibold text-slate-900">
-                {mood.label}
-              </span>
-              <span className="relative text-[11px] text-slate-500">
-                {mood.hint}
-              </span>
-            </motion.button>
-          ))}
-        </div>
-      </section>
-
-      {/* Quote of the Day — curated real literary quotations (no fabricated
-          book data). Each quote is a real, attributed quote from a published
-          author; clicking the author name triggers an author: search. */}
-      <QuoteOfTheDay onSearch={onSearch} />
-
-      {/* How TrueRead works */}
-      <section
-        className="mx-auto w-full max-w-5xl px-4 py-16 md:py-20"
-        aria-labelledby="how-heading"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <h2
-            id="how-heading"
-            className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
-          >
-            How TrueRead works
-          </h2>
-          <p className="mt-2 text-center text-sm text-slate-500">
-            Three steps to understand any book
-          </p>
-        </motion.div>
-
-        <div className="mt-8 flex flex-col items-stretch gap-4 md:flex-row md:items-center">
-          {STEPS.map((step, i) => (
-            <React.Fragment key={step.title}>
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-60px' }}
-                transition={{
-                  duration: 0.4,
-                  delay: i * 0.08,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="flex-1 rounded-2xl bg-white p-6 ring-1 ring-slate-200/70 trueread-shadow-card transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex size-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                    <step.icon className="size-6" strokeWidth={2} />
-                  </span>
-                  <span className="flex size-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                    {i + 1}
-                  </span>
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-slate-900">
-                  {step.title}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">{step.desc}</p>
-              </motion.div>
-              {i < STEPS.length - 1 && (
-                <div className="hidden items-center justify-center md:flex">
-                  <ChevronRight className="size-5 text-slate-300" />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </section>
-
-      {/* Feature highlights */}
-      <section
-        className="border-t border-slate-200/70 bg-white/50"
-        aria-labelledby="features-heading"
-      >
-        <div className="mx-auto w-full max-w-5xl px-4 py-16 md:py-20">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <h2
-              id="features-heading"
-              className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
-            >
-              Why TrueRead
-            </h2>
-            <p className="mt-2 text-center text-sm text-slate-500">
-              Built for readers who want to decide fast
-            </p>
-          </motion.div>
-
-          <div className="mt-8 grid gap-6 sm:grid-cols-3">
-            {FEATURES.map((feat, i) => (
-              <motion.div
-                key={feat.title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{
-                  duration: 0.4,
-                  delay: i * 0.08,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="rounded-2xl bg-white p-6 ring-1 ring-slate-200/70 trueread-shadow-card transition-shadow hover:shadow-md"
-              >
-                <span className="inline-flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <feat.icon className="size-5" strokeWidth={2.25} />
-                </span>
-                <h3 className="mt-4 text-base font-semibold text-slate-900">
-                  {feat.title}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">{feat.desc}</p>
-              </motion.div>
+                {idx < arr.length - 1 && <span className="text-slate-300">•</span>}
+              </React.Fragment>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
+
+      {/* Quote of the Day card */}
+      <QuoteOfTheDay onSearch={onSearch} className="py-6" />
+
+      {/* RECENTLY VIEWED list section */}
+      <RecentlyViewed
+        books={recentlyViewed}
+        onSelect={onSelectBook}
+        onClear={onClearRecentlyViewed}
+        onRemove={onRemoveRecentlyViewed}
+      />
+
+
+
 
       {/* Trust / transparency bar */}
       <section
-        className="border-t border-slate-200/50 bg-slate-50/50"
+        className="border-t border-slate-200/60 bg-slate-50/50"
         aria-labelledby="trust-heading"
       >
         <div className="mx-auto w-full max-w-5xl px-4 py-12 md:py-16">
@@ -513,11 +278,11 @@ export function HomeView({
           >
             <h2
               id="trust-heading"
-              className="text-center text-sm font-semibold uppercase tracking-wide text-blue-600"
+              className="text-center text-xs font-bold uppercase tracking-wider text-blue-600"
             >
               Real data, always
             </h2>
-            <p className="mt-2 text-center text-sm text-slate-500">
+            <p className="mt-2 text-center text-sm text-slate-500 font-medium">
               Zero fabrication — every result comes from a real source
             </p>
           </motion.div>
@@ -534,7 +299,7 @@ export function HomeView({
                   delay: i * 0.06,
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                className="flex items-center gap-2 text-sm text-slate-600"
+                className="flex items-center gap-2 text-xs font-semibold text-slate-600 rounded-full bg-white px-4 py-2 border border-slate-200/70 shadow-2xs"
               >
                 <item.icon className="size-4 text-blue-500" strokeWidth={2} />
                 <span>{item.text}</span>

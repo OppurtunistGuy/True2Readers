@@ -10,31 +10,33 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TrueRead — Understand any book, fast",
+  title: "True2Readers — Understand any book, fast",
   description:
-    "TrueRead: type what you want to read, get real books from Google Books, and understand any book quickly with a clean preview and a quick-read breakdown.",
+    "True2Readers: type what you want to read, get real books from Google Books, and understand any book quickly with a clean preview and a quick-read breakdown.",
   keywords: [
-    "TrueRead",
+    "True2Readers",
     "book search",
     "Google Books",
     "book preview",
     "reading",
     "book breakdown",
   ],
-  authors: [{ name: "TrueRead" }],
+  authors: [{ name: "True2Readers" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   },
   openGraph: {
-    title: "TrueRead — Understand any book, fast",
+    title: "True2Readers — Understand any book, fast",
     description:
       "Type what you want to read → get books → select one → understand it quickly.",
-    siteName: "TrueRead",
+    siteName: "True2Readers",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "TrueRead — Understand any book, fast",
+    title: "True2Readers — Understand any book, fast",
     description:
       "Type what you want to read → get books → select one → understand it quickly.",
   },

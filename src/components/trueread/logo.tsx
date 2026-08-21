@@ -35,15 +35,8 @@ const sizeMap = {
 } as const
 
 /**
- * TrueRead wordmark: open-book line icon in a blue tint box,
- * followed by the wordmark where "True" is navy and "Read" is blue.
- *
- * When `onClick` is provided, the whole thing renders as a button
- * (used to return home from anywhere in the app).
- *
- * The book icon has a subtle continuous "breathe" animation (gentle scale
- * pulse) — disabled when prefers-reduced-motion is set. The Sparkles accent
- * twinkles on hover of the logo.
+ * True2Readers wordmark: open-book line icon in a blue tint box with sparkle accent,
+ * followed by the wordmark "True2Readers".
  */
 export function Logo({ size = 'md', onClick, className }: LogoProps) {
   const s = sizeMap[size]
@@ -51,7 +44,7 @@ export function Logo({ size = 'md', onClick, className }: LogoProps) {
     <>
       <span
         className={cn(
-          'group/logo relative inline-flex items-center justify-center bg-blue-50 text-blue-600 transition-colors duration-300 group-hover/logo:bg-blue-100',
+          'group/logo relative inline-flex items-center justify-center bg-blue-50 text-blue-600 transition-colors duration-300 group-hover/logo:bg-blue-100 border border-blue-100',
           s.iconBox,
         )}
         aria-hidden="true"
@@ -78,9 +71,9 @@ export function Logo({ size = 'md', onClick, className }: LogoProps) {
           strokeWidth={2.5}
         />
       </span>
-      <span className={cn('font-bold tracking-tight font-sans', s.text)}>
-        <span className="text-slate-900 transition-colors">True</span>
-        <span className="text-blue-600 transition-colors group-hover/logo:text-blue-700">Read</span>
+      <span className={cn('font-extrabold tracking-tight font-sans', s.text)}>
+        <span className="text-slate-900 transition-colors">True2</span>
+        <span className="text-blue-600 transition-colors group-hover/logo:text-blue-700">Readers</span>
       </span>
     </>
   )
@@ -96,7 +89,7 @@ export function Logo({ size = 'md', onClick, className }: LogoProps) {
       <button
         type="button"
         onClick={onClick}
-        aria-label="TrueRead — go to home"
+        aria-label="True2Readers — go to home"
         className={cn(
           baseClass,
           'rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 transition-opacity hover:opacity-95',
@@ -108,7 +101,7 @@ export function Logo({ size = 'md', onClick, className }: LogoProps) {
   }
 
   return (
-    <span className={baseClass} aria-label="TrueRead">
+    <span className={baseClass} aria-label="True2Readers">
       {content}
     </span>
   )

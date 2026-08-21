@@ -234,7 +234,7 @@ export function NavMenu({ onOpenKeyboardHelp }: NavMenuProps) {
                       Have a suggestion, feedback, or a book you’d love to see featured? We’d love to hear from you.
                     </p>
                     <div className="mt-3 rounded-2xl bg-slate-50 p-4 border border-slate-200 text-xs space-y-2 text-slate-700">
-                      <p><strong>Email:</strong> hello@thinkable.co</p>
+                      <p><strong>Email:</strong> nik.patil4696@gmail.com</p>
                       <p><strong>Team:</strong> Thinkable & Co. Product & Literary Intelligence</p>
                     </div>
                   </div>

@@ -1,146 +1,151 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Brain,
-  Clock,
-  MessagesSquare,
-  Smile,
-  Sparkles,
-  Zap,
-} from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Sparkles, AlertTriangle, CheckCircle } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
-import { getBreakdown, type Breakdown } from './mock-ai'
 
 export interface AiBreakdownProps {
-  book: Book
+  book?: Book
 }
 
-/**
- * Animated segmented progress bar with 5 segments.
- * Filled segments are blue-600, empty segments are slate-200.
- * Each segment animates in with a staggered delay.
- */
-function SegmentedBar({ level, delay = 0 }: { level: number; delay?: number }) {
+export interface DimensionMetric {
+  id: number
+  title: string
+  description: string
+  signalType: 'positive' | 'warning'
+  signalText: string
+  rating: number // 1 to 5
+}
+
+function DotMeter({ dots = 3 }: { dots: number }) {
   return (
-    <div className="flex flex-1 items-center gap-1" aria-hidden="true">
+    <div className="flex items-center gap-1">
       {Array.from({ length: 5 }).map((_, i) => (
-        <motion.span
+        <span
           key={i}
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{
-            duration: 0.3,
-            delay: delay + i * 0.06,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className={
-            i < level
-              ? 'h-2 flex-1 rounded-full bg-blue-600 origin-left'
-              : 'h-2 flex-1 rounded-full bg-slate-200 origin-left'
-          }
+          className={`size-2 rounded-full ${
+            i < dots ? 'bg-blue-600' : 'bg-slate-200'
+          }`}
         />
       ))}
     </div>
   )
 }
 
-function Row({
-  icon,
-  label,
-  value,
-  delay = 0,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: { label: string; level: number }
-  delay?: number
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, delay, ease: [0.22, 1, 0.36, 1] }}
-      className="flex items-center gap-3"
-    >
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-        {icon}
-      </span>
-      <span className="w-28 shrink-0 text-sm font-medium text-slate-700 sm:w-24">
-        {label}
-      </span>
-      <SegmentedBar level={value.level} delay={delay + 0.1} />
-      <motion.span
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: delay + 0.35 }}
-        className="w-20 shrink-0 text-right text-xs font-medium tabular-nums text-slate-500"
-      >
-        {value.label}
-      </motion.span>
-    </motion.div>
-  )
-}
+export const CORE_READER_DIMENSIONS: DimensionMetric[] = [
+  {
+    id: 1,
+    title: 'Plot & Hook',
+    description: 'Central story or idea that keeps you engaged from the start.',
+    signalType: 'positive',
+    signalText: 'Generally strong',
+    rating: 5,
+  },
+  {
+    id: 2,
+    title: 'Storyline & Progression',
+    description: 'How well the content develops and moves forward.',
+    signalType: 'warning',
+    signalText: 'May feel slow in parts',
+    rating: 4,
+  },
+  {
+    id: 3,
+    title: 'Clarity & Context',
+    description: "How easy it is to understand the author's ideas and messages.",
+    signalType: 'positive',
+    signalText: 'Clear and well-structured',
+    rating: 4,
+  },
+  {
+    id: 4,
+    title: 'Emotional Connection',
+    description: 'How well the book creates relatable emotions or moments.',
+    signalType: 'warning',
+    signalText: 'Some moments may feel distant',
+    rating: 3,
+  },
+  {
+    id: 5,
+    title: 'Writing & Vocabulary',
+    description: 'Quality of writing style and word choice.',
+    signalType: 'positive',
+    signalText: 'Simple, clear, and enjoyable',
+    rating: 4,
+  },
+  {
+    id: 6,
+    title: 'Genre & Expectations Fit',
+    description: 'How well it matches what readers in this genre usually expect.',
+    signalType: 'positive',
+    signalText: 'Well-aligned with the genre',
+    rating: 4,
+  },
+]
 
-/**
- * "AI-Style Breakdown (Mock)" panel.
- *
- * A bg-slate-50 rounded card with a Sparkles icon header and four rows
- * (Pacing / Tone / Dialogue Density / Complexity), each showing an animated
- * segmented progress bar. Includes a tiny disclaimer that this is mock, not real AI.
- */
 export function AiBreakdown({ book }: AiBreakdownProps) {
-  const breakdown: Breakdown = React.useMemo(() => getBreakdown(book), [book])
-
   return (
-    <section
-      aria-label="AI-style breakdown (mock)"
-      className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200/70"
-    >
-      <div className="mb-5 flex items-center gap-2">
-        <span className="inline-flex size-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-          <Sparkles className="size-4" strokeWidth={2.25} />
-        </span>
-        <h3 className="text-base font-semibold text-slate-900">
-          AI-Style Breakdown
-        </h3>
-        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
-          Mock
-        </span>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+      {/* Top Header */}
+      <div className="flex flex-col gap-1 border-b border-slate-100 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="size-4 text-blue-600" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+              Reader Experience Framework
+            </h3>
+          </div>
+          <span className="flex size-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700">
+            6
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-500">
+          Core dimensions that shape your reading experience.
+        </p>
       </div>
 
-      <div className="flex flex-col gap-5">
-        <Row
-          icon={<Clock className="size-5" strokeWidth={2} />}
-          label="Pacing"
-          value={breakdown.pacing}
-          delay={0}
-        />
-        <Row
-          icon={<Smile className="size-5" strokeWidth={2} />}
-          label="Tone"
-          value={breakdown.tone}
-          delay={0.08}
-        />
-        <Row
-          icon={<MessagesSquare className="size-5" strokeWidth={2} />}
-          label="Dialogue"
-          value={breakdown.dialogue}
-          delay={0.16}
-        />
-        <Row
-          icon={<Brain className="size-5" strokeWidth={2} />}
-          label="Complexity"
-          value={breakdown.complexity}
-          delay={0.24}
-        />
+      {/* 6 Core Reader Dimensions */}
+      <div className="space-y-3">
+        {CORE_READER_DIMENSIONS.map((dim) => (
+          <div
+            key={dim.id}
+            className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 space-y-1.5 hover:border-blue-200 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span className="flex size-4 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700">
+                  {dim.id}
+                </span>
+                {dim.title}
+              </span>
+              <DotMeter dots={dim.rating} />
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-snug">
+              {dim.description}
+            </p>
+
+            <div className="pt-1 border-t border-slate-100/80 text-[10px]">
+              {dim.signalType === 'positive' ? (
+                <div className="flex items-center gap-1 text-emerald-700 font-semibold">
+                  <CheckCircle className="size-3 shrink-0 text-emerald-600" />
+                  <span>{dim.signalText}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-amber-700 font-semibold">
+                  <AlertTriangle className="size-3 shrink-0 text-amber-600" />
+                  <span>{dim.signalText}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <p className="mt-5 text-[11px] text-slate-400">
+      <p className="text-[10px] text-slate-400 italic text-center border-t border-slate-100 pt-2">
         Mock analysis — not a real AI call.
       </p>
-    </section>
+    </div>
   )
 }
 

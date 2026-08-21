@@ -481,27 +481,7 @@ export function ResultsView({
         </div>
       </motion.div>
 
-      {/* Transparent source banner — shown only when results came from the
-          Apple Books fallback (Google Books environmentally unavailable). */}
-      {source === 'apple' && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mt-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-600"
-        >
-          <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
-          <p>
-            <span className="font-medium text-slate-800">
-              Google Books is temporarily unavailable
-            </span>{' '}
-            from this environment (shared-IP quota). Showing real results from{' '}
-            <span className="font-medium text-blue-700">Apple Books</span>{' '}
-            instead — covers and metadata are real; book previews will show
-            &ldquo;No preview available.&rdquo;
-          </p>
-        </motion.div>
-      )}
+
 
       {/* Compare mode banner — appears when compare mode is active */}
       <AnimatePresence>

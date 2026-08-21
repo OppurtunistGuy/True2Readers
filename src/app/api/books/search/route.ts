@@ -1,18 +1,20 @@
 /**
  * GET /api/books/search
  *
+ * Route Handler (server-only by default — no `'use client'` / `'use server'`).
+ *
  * Query params:
  *   q           (required) search query — title, author, genre, topic, …
  *   startIndex  (optional, default 0, clamped >= 0)
  *   maxResults  (optional, default 24, clamped 1..40)
  *
  * Returns a `SearchResponse` (see `@/components/trueread/types`).
- * Uses `executeFastSearch()` from provider registry for fast search latency.
  */
 
 import type { SearchResponse } from '@/components/trueread/types'
 import { executeFastSearch } from '@/lib/providers'
 
+// Help Next.js treat this as always-dynamic (query-driven). Optional but explicit.
 export const dynamic = 'force-dynamic'
 
 function parseIntParam(value: string | null, fallback: number): number {
@@ -43,13 +45,9 @@ export async function GET(request: Request): Promise<Response> {
     if (maxResults < 1) maxResults = 1
     if (maxResults > 40) maxResults = 40
 
-    const searchResponse: SearchResponse = await executeFastSearch(
-      q,
-      startIndex,
-      maxResults,
-    )
+    const body = await executeFastSearch(q, startIndex, maxResults)
 
-    return Response.json(searchResponse, {
+    return Response.json(body, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {

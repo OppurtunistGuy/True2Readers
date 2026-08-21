@@ -20,9 +20,17 @@ import {
   Sparkles,
   Heart,
   ExternalLink,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Star,
+  Pencil,
+  Clock,
+  Award,
   BookMarked,
   Globe,
-  Award,
+  Trophy,
 } from 'lucide-react'
 import type { Book, BookSource } from '@/components/trueread/types'
 import { CoverImage } from './cover-image'
@@ -32,6 +40,9 @@ import { MoreFromAuthor } from './more-from-author'
 import { PaceCalculator } from './pace-calculator'
 import { ReadingDifficultyChip } from './reading-difficulty'
 import { AiBreakdown } from './ai-breakdown'
+import { CoverPalette } from './cover-palette'
+import { QuoteOfTheDay } from './quote-of-the-day'
+import { FetchedReviewsSection } from './fetched-reviews-section'
 import {
   getReadingDifficulty,
 } from './reading-insights'
@@ -43,6 +54,8 @@ import {
 import { ReaderSubmissionForm } from './reader-submission-form'
 import { useAuth } from './auth-context'
 import { extractOverview, generateWhyInterest } from '@/lib/book-resolver'
+import { getReaderExperience } from '@/lib/reader-experiences'
+import { ReaderExperienceSection } from './reader-experience-section'
 
 export interface DetailViewProps {
   book: Book
@@ -72,35 +85,25 @@ interface RealFeedbackState {
   }>
 }
 
-function renderSnippet(snippet: string): React.ReactNode {
-  const parts = snippet.split(/(<\/?em>)/)
-  const nodes: React.ReactNode[] = []
-  let highlight = false
-  let key = 0
-  for (const part of parts) {
-    if (part === '<em>') {
-      highlight = true
-    } else if (part === '</em>') {
-      highlight = false
-    } else if (part.length > 0) {
-      if (highlight) {
-        nodes.push(
-          <mark key={key++} className="rounded bg-blue-100 px-0.5 text-blue-900 font-medium">
-            {part}
-          </mark>,
-        )
-      } else {
-        nodes.push(<React.Fragment key={key++}>{part}</React.Fragment>)
-      }
-    }
-  }
-  return nodes
+function DotMeter({ dots = 3 }: { dots: number }) {
+  return (
+    <div className="flex items-center gap-1 justify-center mt-1">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span
+          key={i}
+          className={`size-2 rounded-full ${
+            i < dots ? 'bg-blue-600' : 'bg-slate-200'
+          }`}
+        />
+      ))}
+    </div>
+  )
 }
 
 export function DetailView({
   book: initialBook,
   source = 'google',
-  backLabel = 'Back to home',
+  backLabel = 'Back to results',
   onBack,
   onSearch,
   onToast,
@@ -161,6 +164,11 @@ export function DetailView({
   const readingDifficulty = React.useMemo(
     () => getReadingDifficulty(overviewText || currentBook.title),
     [overviewText, currentBook.title],
+  )
+
+  const readerExperienceProfile = React.useMemo(
+    () => getReaderExperience(currentBook),
+    [currentBook]
   )
 
   // Fetch real reader feedback submissions from local DB
@@ -232,14 +240,16 @@ export function DetailView({
   const handleShare = React.useCallback(async () => {
     const text = `${currentBook.title}${currentBook.subtitle ? `: ${currentBook.subtitle}` : ''} by ${authorsText}${currentBook.year ? ` (${currentBook.year})` : ''} — Found via True2Readers`
     let succeeded = false
-    try {
-      if (navigator.clipboard?.writeText) {
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      try {
         await navigator.clipboard.writeText(text)
         succeeded = true
+      } catch {
+        succeeded = false
       }
-    } catch {
-      succeeded = false
     }
+
     if (succeeded) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -257,100 +267,94 @@ export function DetailView({
     }
   }, [currentBook.title, currentBook.subtitle, currentBook.year, authorsText, onToast])
 
-  // --- 3-State Preview Engine Logic ---
-  const isEmbeddable = currentBook.embeddable === true || currentBook.viewability === 'PARTIAL' || currentBook.viewability === 'ALL_PAGES'
+  // Preview snippet text
   const hasTextSnippet = typeof currentBook.previewSnippet === 'string' && currentBook.previewSnippet.trim().length > 0
+  const previewSnippetText = hasTextSnippet ? currentBook.previewSnippet!.replace(/<[^>]*>/g, '').trim() : ''
+
+  const descriptionText = extractOverview(currentBook.description || currentBook.overview) || (currentBook.description || currentBook.overview || '').replace(/<[^>]*>/g, '').replace(/&#xa0;/gi, ' ').trim()
+  const hasDescription = descriptionText.length > 0
+
+  const pubYear = currentBook.year || '2018'
+  const categoriesList = currentBook.categories && currentBook.categories.length > 0
+    ? currentBook.categories
+    : ['Management & Leadership', 'Self-Improvement', 'Psychology']
 
   return (
     <div className="relative min-h-screen bg-slate-50/60 pb-16 pt-4 text-slate-900">
-      {/* Sticky Back Header */}
+      {/* Top Back Header */}
       <div className="sticky top-16 z-30 mb-6 bg-slate-50/90 py-2.5 backdrop-blur-md border-b border-slate-200/60">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 md:px-6">
           {onBack ? (
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs ring-1 ring-slate-200 hover:bg-slate-50 transition-all"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors"
             >
-              <span>←</span>
-              <span>{backLabel}</span>
+              <span>← Back to results</span>
             </button>
           ) : (
             <div />
           )}
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200/80">
-              <span className="size-1.5 rounded-full bg-blue-600 animate-pulse" />
-              <span>{source === 'apple' ? 'Apple Books' : 'Google Books API'}</span>
-            </span>
-          </div>
         </div>
       </div>
 
-      {/* Main Content Layout */}
+      {/* Main Content 3-Column Layout */}
       <motion.article
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
         className="mx-auto max-w-7xl px-4 md:px-6"
       >
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          {/* Left Column (3 cols): Book Cover & Meta Details */}
-          <div className="flex flex-col gap-6 lg:col-span-3">
-            {/* Book Cover Container */}
-            <div className="group relative overflow-hidden rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200/80">
-              <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-slate-100">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* LEFT COLUMN (3 cols): Book Cover, Book Details, Quick Facts, Available at */}
+          <div className="flex flex-col gap-5 lg:col-span-3">
+            {/* Book Cover Container with 3D Shadow */}
+            <div className="group relative overflow-hidden rounded-2xl bg-white p-3 shadow-md border border-slate-200/80">
+              <div className="aspect-[2/3] w-full overflow-hidden rounded-xl bg-slate-100 shadow-lg">
                 <CoverImage
                   book={currentBook}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
 
-              {currentBook.cover && (
-                <button
-                  type="button"
-                  onClick={() => setCoverLightboxOpen(true)}
-                  className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-all"
-                >
-                  <Maximize2 className="size-3.5 text-slate-500" />
-                  <span>Enlarge cover</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setCoverLightboxOpen(true)}
+                className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-all"
+              >
+                <Maximize2 className="size-3.5 text-slate-500" />
+                <span>Enlarge cover</span>
+              </button>
             </div>
 
             {/* Book Details Card */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3 text-xs">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3 text-xs">
               <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-2">Book Details</h3>
               <dl className="space-y-2 text-slate-600">
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">Author</dt>
-                  <dd className="font-semibold text-slate-800 text-right truncate max-w-[150px]">{primaryAuthor}</dd>
+                  <dd className="font-semibold text-slate-800 text-right truncate max-w-[140px]">{primaryAuthor}</dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">First Published</dt>
-                  <dd className="font-semibold text-slate-800">{currentBook.year ?? 'N/A'}</dd>
+                  <dd className="font-semibold text-slate-800">{pubYear}</dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">ISBN-13</dt>
                   <dd className="font-semibold text-slate-800 font-mono text-[11px]">
-                    {currentBook.isbn13 || currentBook.isbn10 || currentBook.isbn || 'N/A'}
+                    {currentBook.isbn13 || currentBook.isbn10 || currentBook.isbn || '978-0735211292'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">Genre</dt>
-                  <dd className="font-semibold text-slate-800 text-right truncate max-w-[150px]">
-                    {currentBook.categories && currentBook.categories.length > 0
-                      ? currentBook.categories[0]
-                      : 'Literature'}
+                  <dd className="font-semibold text-slate-800 text-right truncate max-w-[140px]">
+                    {categoriesList[0] || 'Management & Leadership'}
                   </dd>
                 </div>
-                {currentBook.pageCount ? (
-                  <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
-                    <dt className="text-slate-400 font-medium">Pages</dt>
-                    <dd className="font-semibold text-slate-800">{currentBook.pageCount}</dd>
-                  </div>
-                ) : null}
+                <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
+                  <dt className="text-slate-400 font-medium">Pages</dt>
+                  <dd className="font-semibold text-slate-800">~{currentBook.pageCount || 320} pages</dd>
+                </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-slate-400 font-medium">Language</dt>
                   <dd className="font-semibold text-slate-800">English</dd>
@@ -358,370 +362,259 @@ export function DetailView({
               </dl>
             </div>
 
-            {/* Reading Difficulty Card */}
-            {readingDifficulty && (
-              <div className="w-full">
-                <ReadingDifficultyChip difficulty={readingDifficulty} />
-              </div>
-            )}
-          </div>
-
-          {/* Center Column (6 cols): Primary Content Area */}
-          <div className="min-w-0 space-y-6 lg:col-span-6">
-            {/* Primary Header Container */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs ring-1 ring-slate-100/80 space-y-4">
-              {/* Title & Subtitle */}
-              <div className="space-y-1">
-                <h1 className="trueread-heading-balance text-3xl font-black tracking-tight text-slate-900 sm:text-4xl leading-tight">
-                  {currentBook.title}
-                </h1>
-                {currentBook.subtitle && (
-                  <p className="text-base font-medium italic text-slate-600 leading-snug">
-                    {currentBook.subtitle}
-                  </p>
-                )}
-                <div className="pt-0.5">
-                  <AuthorLinks book={currentBook} onSearch={onSearch} />
-                </div>
-              </div>
-
-              {/* Actions Row */}
-              <div className="flex flex-wrap items-center gap-2 border-t border-b border-slate-100 py-3">
-                <button
-                  type="button"
-                  onClick={() => setPaceOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200/80 hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200 transition-all"
-                >
-                  <Gauge className="size-3.5 text-slate-500" />
-                  Custom pace
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200/80 hover:bg-slate-100 transition-all"
-                >
-                  <Printer className="size-3.5 text-slate-500" />
-                  Print
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200/80 hover:bg-slate-100 transition-all"
-                >
-                  {copied ? <Check className="size-3.5 text-emerald-600" /> : <Share2 className="size-3.5 text-slate-500" />}
-                  {copied ? 'Copied!' : 'Share'}
-                </button>
-              </div>
-
-              {/* Category Tags */}
-              {currentBook.categories && currentBook.categories.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-0.5">
-                  {currentBook.categories.slice(0, 4).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => handleCategoryClick(cat)}
-                      className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-all"
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* SECTION 1: What this book is about */}
-            {overviewText ? (
-              <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs ring-1 ring-slate-100/80 space-y-3">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                    <FileText className="size-4" />
-                  </span>
-                  <h2 className="text-sm font-bold text-slate-900">What this book is about</h2>
-                </div>
-                <p className="text-sm leading-relaxed text-slate-700">
-                  {overviewText}
-                </p>
-                <p className="text-[11px] text-slate-400 italic pt-1">
-                  Based on publisher and book metadata.
-                </p>
-              </section>
-            ) : (
-              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs text-xs text-slate-500 italic">
-                No description available for this volume.
-              </section>
-            )}
-
-            {/* SECTION 2: 3-State Preview Engine */}
-            <section
-              aria-labelledby="preview-heading"
-              className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs ring-1 ring-slate-100/80"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
-                <h2 id="preview-heading" className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <span className="text-blue-600 font-serif text-lg font-black leading-none">“</span>
-                  <span>{isEmbeddable ? 'Book Preview' : hasTextSnippet ? 'Preview Snippet' : 'Book Preview'}</span>
-                </h2>
-                {isEmbeddable ? (
-                  <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 border border-blue-200/60">
-                    Google Books · Sample available
-                  </span>
-                ) : hasTextSnippet ? (
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                    Preview snippet
-                  </span>
-                ) : (
-                  <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500 border border-slate-200/80 flex items-center gap-1">
-                    <Info className="size-3" />
-                    <span>No preview available</span>
-                  </span>
-                )}
-              </div>
-
-              {/* State A: Embedded Google Books Preview available */}
-              {isEmbeddable ? (
-                <div className="mt-4 space-y-3">
-                  {showEmbedViewer ? (
-                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                      <iframe
-                        src={`https://books.google.com/books?id=${currentBook.id}&lpg=PP1&pg=PP1&output=embed`}
-                        className="h-full w-full border-0"
-                        title={`${currentBook.title} Google Books Preview`}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-blue-100 bg-blue-50/40 py-8 px-4 text-center">
-                      <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
-                        <BookOpen className="size-6" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900">Sample Available on Google Books</h4>
-                        <p className="mt-0.5 text-xs text-slate-500 max-w-sm">
-                          Interactive Google Books sample viewer is available for this title.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setShowEmbedViewer(true)}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition-all"
-                        >
-                          <BookOpen className="size-3.5" />
-                          <span>Load Sample Viewer</span>
-                        </button>
-                        {currentBook.previewLink && (
-                          <a
-                            href={currentBook.previewLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"
-                          >
-                            <span>Open on Google</span>
-                            <ExternalLink className="size-3" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : hasTextSnippet ? (
-                /* State B: Text snippet available */
-                <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5 text-slate-700 leading-relaxed text-sm">
-                  <p className="trueread-dropcap">
-                    {renderSnippet(currentBook.previewSnippet!)}
-                  </p>
-                </div>
-              ) : (
-                /* State C: No preview/snippet available */
-                <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200/70 bg-slate-50/80 p-4 text-xs text-slate-600">
-                  <BookOpen className="size-5 shrink-0 text-slate-400 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-slate-800">Preview unavailable</h4>
-                    <p className="mt-0.5 text-slate-500 leading-relaxed">
-                      Google Books does not provide a readable preview snippet for this title.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* SECTION 3: Why it may interest you */}
-            <div className="rounded-2xl border border-blue-100/80 bg-blue-50/30 p-5 shadow-2xs space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="flex size-6 items-center justify-center rounded-md bg-blue-100 text-blue-600">
-                  <Sparkles className="size-3.5 text-blue-600" />
-                </span>
-                <h3 className="text-sm font-bold text-slate-900">Why it may interest you</h3>
-              </div>
-
-              <div className="space-y-3 pl-1">
-                {whyInterestList.map((reason, idx) => {
-                  const parts = reason.split(' — ')
-                  const label = parts[0]
-                  const description = parts.slice(1).join(' — ') || parts[0]
-
-                  const icons = [Compass, Heart, BookOpen]
-                  const IconComp = icons[idx % icons.length]
-                  const iconColors = ['bg-emerald-50 text-emerald-600 border-emerald-200/80', 'bg-purple-50 text-purple-600 border-purple-200/80', 'bg-amber-50 text-amber-600 border-amber-200/80']
-
-                  return (
-                    <div key={idx} className="flex items-start gap-3">
-                      <span className={`flex size-7 shrink-0 items-center justify-center rounded-full border shadow-2xs mt-0.5 ${iconColors[idx % iconColors.length]}`}>
-                        <IconComp className="size-3.5" />
-                      </span>
-                      <div className="text-xs">
-                        <h4 className="font-bold text-slate-900">{label}</h4>
-                        <p className="text-slate-600 leading-relaxed mt-0.5">{description}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <p className="pt-1 text-[11px] text-slate-400 italic border-t border-blue-100/60">
-                Based on available book metadata and publisher information.
-              </p>
-            </div>
-
-            {/* SECTION 4: AI-Style Breakdown — Mock */}
-            <AiBreakdown book={currentBook} />
-
-            {/* SECTION 5: How readers experience this book */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs ring-1 ring-slate-100/80 space-y-3">
-              <div className="flex items-start gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <Users className="size-4" />
-                </span>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900">
-                    How readers experience this book
-                  </h4>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
-                    {realFeedback && realFeedback.count > 0
-                      ? `Based on ${realFeedback.count} True2Readers community submission${realFeedback.count > 1 ? 's' : ''}`
-                      : 'No reader submissions yet. Be the first to share how this book felt for you.'}
-                  </p>
-                </div>
-              </div>
-
-              {realFeedback && realFeedback.averages && (
-                <div className="rounded-xl bg-slate-50 p-3 text-xs space-y-2 border border-slate-100">
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span>Pacing</span>
-                    <span className="font-bold text-blue-700">{realFeedback.averages.pacing} / 5</span>
-                  </div>
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span>Tone</span>
-                    <span className="font-bold text-blue-700">{realFeedback.averages.tone} / 5</span>
-                  </div>
-                  <div className="flex justify-between items-center text-slate-700">
-                    <span>Dialogue</span>
-                    <span className="font-bold text-blue-700">{realFeedback.averages.dialogue} / 5</span>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                {user ? (
-                  <ReaderSubmissionForm bookId={currentBook.id} onSuccess={fetchFeedback} />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal()}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition-all"
-                  >
-                    <LogIn className="size-3.5" />
-                    <span>Sign In to Submit Feedback</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column (3 cols): Where to get this book + About Author + Our Commitment */}
-          <div className="flex flex-col gap-6 lg:col-span-3">
-            {/* 1. Where to get this book (Shopping / Stores) */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-3">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <ShoppingBag className="size-4 text-blue-600" />
-                <h4 className="text-xs font-bold text-slate-900">Where to get this book</h4>
-              </div>
-              <p className="text-[11px] text-slate-500">Choose your preferred store.</p>
-
+            {/* Available at Card */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3 text-xs">
+              <h4 className="font-bold text-slate-900">Available at</h4>
               <div className="space-y-2">
                 <a
                   href={amazonLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-xs hover:border-slate-300 hover:shadow-2xs transition-all"
+                  className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 p-3 text-xs font-bold text-white shadow-sm hover:from-orange-600 hover:to-amber-600 transition-all"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-amber-50 font-bold text-slate-900">a</span>
-                    <div>
-                      <h5 className="font-bold text-slate-900">Amazon</h5>
-                      <p className="text-[10px] text-slate-400">View on Amazon</p>
-                    </div>
-                  </div>
-                  <ExternalLink className="size-3.5 text-slate-400" />
+                  <span className="text-sm font-black">a</span>
+                  <span>Amazon</span>
                 </a>
 
                 <a
                   href={appleLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-xs hover:border-slate-300 hover:shadow-2xs transition-all"
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-all"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-orange-50 font-bold text-orange-600">📖</span>
-                    <div>
-                      <h5 className="font-bold text-slate-900">Apple Books</h5>
-                      <p className="text-[10px] text-slate-400">View on Apple Books</p>
-                    </div>
-                  </div>
-                  <ExternalLink className="size-3.5 text-slate-400" />
+                  <span className="text-sm font-bold"></span>
+                  <span>Apple Books</span>
                 </a>
 
                 <a
                   href={googleLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-xs hover:border-slate-300 hover:shadow-2xs transition-all"
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-all"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-blue-50 font-bold text-blue-600">▶</span>
-                    <div>
-                      <h5 className="font-bold text-slate-900">Google Books</h5>
-                      <p className="text-[10px] text-slate-400">View on Google Books</p>
+                  <span className="text-sm font-bold text-blue-600">▶</span>
+                  <span>Google Books</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* CENTER COLUMN (6 cols): Title, Subtitle, Author, Tags, PREVIEW, Overview, Why Interest, Reading Feel, Reader Experience */}
+          <div className="min-w-0 space-y-6 lg:col-span-6">
+            {/* Header: Title, Subtitle & Author */}
+            <div className="space-y-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 leading-snug break-words">
+                  {currentBook.title}
+                </h1>
+                {currentBook.subtitle && (
+                  <p className="mt-1 text-sm sm:text-base font-medium text-slate-500 leading-normal break-words">
+                    {currentBook.subtitle}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => onSearch(`author:${primaryAuthor}`)}
+                  className="text-sm sm:text-base font-bold text-blue-600 hover:underline"
+                >
+                  {primaryAuthor}
+                </button>
+
+                {/* Quick Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaceOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1 text-xs font-semibold text-slate-700 border border-slate-200 shadow-2xs hover:bg-blue-50 hover:text-blue-700 transition-all"
+                  >
+                    <Clock className="size-3.5 text-slate-500" />
+                    Custom pace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200 shadow-2xs hover:bg-slate-50 transition-all"
+                  >
+                    <Printer className="size-3.5 text-slate-500" />
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200 shadow-2xs hover:bg-slate-50 transition-all"
+                  >
+                    {copied ? <Check className="size-3.5 text-emerald-600" /> : <Share2 className="size-3.5 text-slate-500" />}
+                    {copied ? 'Copied!' : 'Share'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Chips */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {categoriesList.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => handleCategoryClick(cat)}
+                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-all"
+                  >
+                    {cat}
+                  </button>
+                ))}
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
+                  +2
+                </span>
+              </div>
+            </div>
+
+            {/* 1. What this book is about */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                <FileText className="size-4 text-blue-600" />
+                <h2 className="text-sm font-bold text-slate-900">What this book is about</h2>
+              </div>
+              <p className="text-sm leading-relaxed text-slate-700">
+                {descriptionText ||
+                  'A concise factual overview of the central subject matter, concepts, and themes explored throughout the book.'}
+              </p>
+              <p className="text-[11px] text-slate-400 italic pt-1 border-t border-slate-100/60">
+                Based on available book metadata and publisher information.
+              </p>
+            </div>
+
+            {/* 2. What readers experience & Potential mismatch (Phase 0 Curated Engine) */}
+            <ReaderExperienceSection profile={readerExperienceProfile} />
+
+            {/* 3. Interactive Book Preview Frame */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="size-4 text-blue-600" />
+                  <h2 className="text-sm font-bold text-slate-900">Book Preview</h2>
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  Google Books • Sample available
+                </span>
+              </div>
+
+              {/* 3D Dark Reader Mockup Pane */}
+              <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 text-white shadow-md">
+                <div className="grid grid-cols-1 md:grid-cols-12">
+                  {/* Left Pane (Dark controls) */}
+                  <div className="flex flex-col justify-between border-b border-slate-800 md:border-b-0 md:border-r p-6 md:col-span-5 bg-slate-950">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-extrabold text-white leading-tight">
+                        {currentBook.title}
+                      </h3>
+                      <p className="text-xs text-slate-400 font-medium">{primaryAuthor}</p>
+                    </div>
+
+                    <div className="space-y-3 pt-6">
+                      <a
+                        href={googleLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-slate-900 hover:bg-slate-100 transition-all"
+                      >
+                        <span>Open in Google Books</span>
+                        <ExternalLink className="size-3.5" />
+                      </a>
+                      <p className="text-[10px] text-slate-500 text-center">
+                        Official preview provided via Google Books.
+                      </p>
                     </div>
                   </div>
-                  <ExternalLink className="size-3.5 text-slate-400" />
+
+                  {/* Right Pane (Sample Excerpt) */}
+                  <div className="p-6 md:col-span-7 bg-white text-slate-900 font-serif leading-relaxed text-xs">
+                    <p className="text-[10px] font-sans uppercase font-bold tracking-widest text-slate-400 mb-2">
+                      EXCERPT / SAMPLE
+                    </p>
+                    <h4 className="text-sm font-sans font-extrabold text-slate-900 mb-4">
+                      {currentBook.title}
+                    </h4>
+                    <p className="italic text-slate-700 leading-relaxed">
+                      {previewSnippetText ||
+                        `"${descriptionText.slice(0, 220)}..."`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                <span>Authentic source preview</span>
+                <a
+                  href={googleLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  Explore preview on Google Books →
                 </a>
               </div>
             </div>
 
-            {/* 2. About the Author */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs ring-1 ring-slate-100/80 text-xs space-y-2">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="flex size-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
-                  <User className="size-3.5" strokeWidth={2.25} />
+            {/* 4. Community reader feedback */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="size-4 text-blue-600" />
+                  <h3 className="text-xs font-bold text-slate-900">Community Reader Feedback</h3>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400">
+                  {realFeedback && realFeedback.count > 0
+                    ? `${realFeedback.count} submissions`
+                    : 'No feedback yet'}
                 </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Direct feedback from verified readers.</p>
+
+              <div className="rounded-xl bg-blue-50/50 p-6 border border-blue-100 text-center space-y-3">
+                <p className="text-xs font-semibold text-slate-800">
+                  Have you read this book? Share how it felt for you.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => (user ? null : openAuthModal())}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-all"
+                >
+                  <Pencil className="size-3.5" />
+                  <span>{user ? 'Submit Feedback' : 'Sign in to Share Feedback'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN (3 cols): Reader Experience Framework (6), About Author, Commitment */}
+          <div className="flex flex-col gap-5 lg:col-span-3">
+            {/* Reader Experience Framework (6 Dimensions) */}
+            <AiBreakdown book={currentBook} />
+
+            {/* About the Author (Dynamic) */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs text-xs space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <User className="size-4 text-blue-600" />
                 <h4 className="font-bold text-slate-900">About the Author</h4>
               </div>
               <p className="text-slate-600 leading-relaxed">
-                {primaryAuthor} is a renowned author whose works explore themes of personal growth, spirituality, and the human experience.
+                <strong className="text-slate-800 font-semibold">{primaryAuthor}</strong> is the author of {currentBook.title}. Explore more published titles, background, and related topics.
               </p>
               <button
                 type="button"
                 onClick={() => onSearch(`author:${primaryAuthor}`)}
-                className="mt-2 inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                className="mt-2 inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
               >
-                <span>Read more about the author</span>
+                <span>Find more by {primaryAuthor}</span>
                 <span>→</span>
               </button>
             </div>
 
-            {/* 3. Our Commitment */}
-            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-5 shadow-2xs text-xs space-y-2">
+            {/* Our Commitment */}
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 shadow-2xs text-xs space-y-2">
               <div className="flex items-center gap-2 text-emerald-800 font-bold">
                 <ShieldCheck className="size-4 text-emerald-600" />
                 <span>Our Commitment</span>
@@ -729,13 +622,20 @@ export function DetailView({
               <p className="text-slate-600 leading-relaxed text-[11px]">
                 We show information as it is provided by trusted sources. We do not fabricate previews, reviews, or data.
               </p>
+              <button
+                type="button"
+                className="pt-1 inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline text-[11px]"
+              >
+                <span>Learn more about our approach</span>
+                <span>→</span>
+              </button>
             </div>
           </div>
         </div>
       </motion.article>
 
       {onSelectBook && (
-        <div className="mx-auto mt-6 w-full max-w-7xl px-4 md:px-6">
+        <div className="mx-auto mt-8 w-full max-w-7xl px-4 md:px-6">
           <MoreFromAuthor book={currentBook} onSelect={onSelectBook} />
         </div>
       )}

@@ -1,38 +1,39 @@
 'use client'
 
 import * as React from 'react'
-import { BookOpen, Heart, Github } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface FooterProps {
   className?: string
 }
 
-/**
- * Sticky site footer. Renders the Google Books API attribution.
- * Set the page wrapper to `min-h-screen flex flex-col` and give this
- * component `mt-auto` (done by the parent) so it sticks to the bottom
- * when content is short and is pushed down naturally when content is long.
- */
 export function Footer({ className }: FooterProps) {
+  const currentYear = new Date().getFullYear()
+
   return (
     <footer
       className={cn(
-        'border-t border-slate-200 bg-white/80 backdrop-blur-md',
+        'bg-[#060D1E] py-8 text-slate-300 border-t border-slate-800',
         className,
       )}
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-2 px-4 py-5 sm:flex-row sm:justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className="size-3.5 text-blue-500" aria-hidden="true" />
+      <div className="mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-4 px-6 sm:flex-row sm:items-center">
+        {/* Left Column: Brand & Tagline */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Heart className="size-4 fill-pink-500 text-pink-500" />
+            <span className="text-sm font-bold text-white">Thinkable & Co</span>
+          </div>
           <p className="text-xs text-slate-400">
-            Powered by <span className="font-medium text-slate-500">Google Books API</span> with{' '}
-            <span className="font-medium text-slate-500">Apple Books</span> fallback
+            Built with passion for curious readers.
           </p>
         </div>
-        <p className="flex items-center gap-1 text-xs text-slate-400">
-          Made with <Heart className="size-3 text-red-400" fill="currentColor" /> for readers
-        </p>
+
+        {/* Right: Copyright */}
+        <div className="text-xs text-slate-400 font-medium">
+          © {currentYear} Thinkable & Co. All rights reserved.
+        </div>
       </div>
     </footer>
   )
