@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { verifySessionToken } from '@/lib/auth'
-import { readJson } from '@/lib/http'
+import { accountsOff, readJson } from '@/lib/http'
+import { AUTH_ENABLED } from '@/lib/features'
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!AUTH_ENABLED) return accountsOff()
   try {
     const { id: rawBookId } = await params
     const bookId = decodeURIComponent(rawBookId)
@@ -96,6 +98,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!AUTH_ENABLED) return accountsOff()
   try {
     const { id: rawBookId } = await params
     const bookId = decodeURIComponent(rawBookId)

@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { hashPassword, createSessionToken } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
-import { clientIp, readJson, tooMany } from '@/lib/http'
+import { accountsOff, clientIp, readJson, tooMany } from '@/lib/http'
+import { AUTH_ENABLED } from '@/lib/features'
 
 const MIN_PASSWORD = 10
 const MAX_PASSWORD = 128 // also bounds the cost of scrypt hashing
@@ -17,6 +18,7 @@ const COMMON = new Set([
 ])
 
 export async function POST(req: Request) {
+  if (!AUTH_ENABLED) return accountsOff()
   try {
     const gate = rateLimit(`signup:${clientIp(req)}`, 10, 60 * 60_000)
     if (!gate.ok) return tooMany(gate.retryAfter, 'Too many sign-up attempts from this address. Please try again later.')

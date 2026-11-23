@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifySessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { AUTH_ENABLED } from '@/lib/features'
 
 export async function GET() {
+  // Accounts off: nobody is signed in, and the database is never touched.
+  if (!AUTH_ENABLED) return NextResponse.json({ user: null })
   try {
     const cookieStore = await cookies()
     const sessionCookie = cookieStore.get('trueread_session')

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { AUTH_ENABLED } from '@/lib/features'
 
 export interface UserProfile {
   id: string
@@ -28,6 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authModalOpen, setAuthModalOpen] = React.useState(false)
 
   const refreshUser = React.useCallback(async () => {
+    // Accounts off (src/lib/features.ts): nobody can be signed in, so skip the request.
+    if (!AUTH_ENABLED) {
+      setUser(null)
+      setLoading(false)
+      return
+    }
     try {
       const res = await fetch('/api/auth/me', { cache: 'no-store' })
       if (res.ok) {

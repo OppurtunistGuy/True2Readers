@@ -3,11 +3,13 @@ import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { verifyPassword, createSessionToken } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
-import { clientIp, readJson, tooMany } from '@/lib/http'
+import { accountsOff, clientIp, readJson, tooMany } from '@/lib/http'
+import { AUTH_ENABLED } from '@/lib/features'
 
 const WINDOW = 15 * 60_000
 
 export async function POST(req: Request) {
+  if (!AUTH_ENABLED) return accountsOff()
   try {
     const ip = clientIp(req)
     // Broad per-address ceiling, then a tighter per (address + account) limit below.

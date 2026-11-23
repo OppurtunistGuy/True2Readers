@@ -58,6 +58,7 @@ import { extractOverview, generateWhyInterest } from '@/lib/book-resolver'
 import { getReaderExperience } from '@/lib/reader-experiences'
 import { ReaderExperienceSection } from './reader-experience-section'
 import { ShelfDetail } from './shelf-detail'
+import { AUTH_ENABLED } from '@/lib/features'
 
 export interface DetailViewProps {
   book: Book
@@ -184,6 +185,7 @@ export function DetailView({
 
   // Fetch real reader feedback submissions from local DB
   const fetchFeedback = React.useCallback(async () => {
+    if (!AUTH_ENABLED) return // accounts off: there is no feedback service
     try {
       const res = await fetch(`/api/books/${encodeURIComponent(currentBook.id)}/feedback`)
       if (res.ok) {
@@ -314,6 +316,7 @@ export function DetailView({
           signedIn={!!user}
           onSignIn={openAuthModal}
           feedbackCount={realFeedback?.count ?? 0}
+          accountsEnabled={AUTH_ENABLED}
           onCategoryClick={handleCategoryClick}
         />
         <PaceCalculator
@@ -627,7 +630,8 @@ export function DetailView({
               </div>
             </div>
 
-            {/* 4. Community reader feedback */}
+            {/* 4. Community reader feedback (hidden while accounts are off) */}
+            {AUTH_ENABLED && (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
@@ -656,6 +660,7 @@ export function DetailView({
                 </button>
               </div>
             </div>
+            )}
           </div>
 
           {/* RIGHT COLUMN (3 cols): Reader Experience Framework (6), About Author, Commitment */}

@@ -17,6 +17,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const BASE = process.env.BASE_URL || 'http://localhost:3001'
+// 'off' = the shipping build (accounts disabled, the default); 'on' = a build made with
+// NEXT_PUBLIC_AUTH_ENABLED=true (regression check for the parked accounts code).
+const AUTH_MODE = process.env.AUTH_MODE || 'off'
 const OUT = process.env.EVIDENCE_DIR || './uat-evidence'
 const CHROME = process.env.CHROME_PATH
 fs.mkdirSync(path.join(OUT, 'shots'), { recursive: true })
@@ -65,6 +68,8 @@ async function openApp({ mobile = false, routes } = {}) {
   page.errors = []
   page.dialogs = []
   page.csp = [] // Content-Security-Policy violations the browser reports
+  page.reqs = [] // every URL the page requested (to prove what the browser does and does not call)
+  page.on('request', (r) => page.reqs.push(r.url()))
   page.on('pageerror', (e) => page.errors.push(String(e)))
   page.on('console', (m) => {
     if (/content security policy/i.test(m.text())) page.csp.push(m.text().slice(0, 220))
@@ -400,8 +405,22 @@ await test('E12', 'Same data in both views: switch Classic ↔ Shelf on a book p
   await p.context().close()
 })
 
-await test('E13', 'Sign-in dialog branding and basic validation (no account is created)', async () => {
+await test('E13', AUTH_MODE === 'on' ? 'Sign-in dialog branding and basic validation (no account is created)' : 'Accounts off: no Sign In button, and the Privacy page is accurate', async () => {
   const p = await openApp()
+  if (AUTH_MODE !== 'on') {
+    // Shipping build: there are no accounts. Nothing to sign in to, and the Privacy page says so truthfully.
+    check('no Sign In button in the header', await p.getByRole('button', { name: 'Sign In' }).count(), 0)
+    await p.getByRole('button', { name: 'Open navigation menu' }).click()
+    await p.getByText('Privacy', { exact: true }).first().click() // the dropdown entry (not a button)
+    await p.getByText('has no accounts').waitFor({ timeout: 10000 })
+    const dlg = await p.locator('[role=dialog]').innerText()
+    check('Privacy says there are no accounts', /has no accounts/.test(dlg), true)
+    check('Privacy names who receives search words and cover requests', /Google Books/.test(dlg) && /Open Library/.test(dlg) && /Vercel/.test(dlg), true)
+    check('Privacy no longer claims accounts or session tokens', /encrypted session tokens|User accounts are authenticated/i.test(dlg), false)
+    await shot(p, 'privacy-no-accounts')
+    await p.context().close()
+    return
+  }
   await p.getByRole('button', { name: 'Sign In' }).click()
   await p.getByText(/Welcome back to/).waitFor()
   check('dialog title', await p.getByText(/Welcome back to/).innerText(), 'Welcome back to True2Readers')
@@ -497,6 +516,34 @@ await test('E16', 'Performance & stability on the shelf (indicative — dev serv
   check('no uncaught page errors during the whole journey', p.errors.length, 0)
   check('no CSP violations during the whole journey (fonts, covers, search all allowed)', p.csp.length, 0)
   await shot(p, 'shelf-steady-state')
+  await p.context().close()
+})
+
+await test('E17', `Accounts ${AUTH_MODE === 'on' ? 'ON (regression only)' : 'OFF'}: the browser never calls account APIs and no account UI appears`, async () => {
+  if (AUTH_MODE === 'on') {
+    note('skipped: this check only applies to the shipping build (accounts off)')
+    return
+  }
+  const p = await openApp()
+  const body = () => p.locator('body').innerText()
+  // Shelf journey: quiz → shelf → book page
+  await setMode(p, 'shelf')
+  await submitQuiz(p)
+  await shelfReady(p)
+  await p.getByRole('button', { name: /^Open book$/i }).click()
+  await p.locator('h1', { hasText: 'Atomic Habits' }).waitFor({ timeout: 20000 })
+  await sleep(1500)
+  check('Shelf book page: no "Your experience" / sign-in section', /Your experience|Sign in to share/i.test(await body()), false)
+  await shot(p, 'shelf-book-page-no-account-ui')
+  // Classic journey: book page
+  await setMode(p, 'classic')
+  await sleep(1500)
+  check('Classic book page: no "Community Reader Feedback"', /Community Reader Feedback|Sign in to Share Feedback/i.test(await body()), false)
+  check('no Sign In button anywhere', await p.getByRole('button', { name: /^Sign In$/i }).count(), 0)
+  await shot(p, 'classic-book-page-no-account-ui')
+  const calls = p.reqs.filter((u) => /\/api\/auth\/|\/feedback(\?|$)/.test(u))
+  note(`requests seen by the browser: ${p.reqs.length}; to /api/auth or /feedback: ${calls.length}`)
+  check('browser made zero requests to account or feedback APIs', calls.length, 0)
   await p.context().close()
 })
 

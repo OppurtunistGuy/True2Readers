@@ -24,6 +24,7 @@ const img = (f) => `data:image/jpeg;base64,${fs.readFileSync(path.join(DIR, f)).
 
 const pass = e2e.records.filter((r) => r.status === 'PASS').length
 const findings = sec.results.filter((r) => r.status === 'FINDING')
+const skippedSec = sec.results.filter((r) => r.status === 'SKIP').length
 const sevCount = (s) => findings.filter((f) => f.severity === s).length
 const vulns = audit?.metadata?.vulnerabilities || {}
 
@@ -42,8 +43,8 @@ const e2eRows = e2e.records
 const secRows = sec.results
   .map(
     (r) => `
-<details class="case ${r.status === 'PASS' ? 'ok' : 'warn'}">
-  <summary><span class="tag ${r.status === 'PASS' ? 'ok' : 'warn'}">${r.status === 'PASS' ? 'PASS' : 'FINDING'}</span><span class="sev sev-${r.severity}">${r.severity}</span><b>${esc(r.id)}</b> ${esc(r.title)}</summary>
+<details class="case ${r.status === 'PASS' ? 'ok' : r.status === 'SKIP' ? 'ok' : 'warn'}">
+  <summary><span class="tag ${r.status === 'PASS' || r.status === 'SKIP' ? 'ok' : 'warn'}">${r.status === 'PASS' ? 'PASS' : r.status === 'SKIP' ? 'SKIPPED' : 'FINDING'}</span><span class="sev sev-${r.severity}">${r.severity}</span><b>${esc(r.id)}</b> ${esc(r.title)}</summary>
   ${r.why ? `<p class="why">${esc(r.why)}</p>` : ''}
   <ul class="steps">${r.evidence.map((s) => `<li class="note">${esc(s)}</li>`).join('')}</ul>
 </details>`,
@@ -86,7 +87,7 @@ code{background:var(--card);border:1px solid var(--line);padding:1px 5px;border-
 <div class="meta">Branch <code>${esc(git('git rev-parse --abbrev-ref HEAD'))}</code> · commit <code>${esc(git('git rev-parse --short HEAD'))}</code> · run ${esc(e2e.when)} · target <code>${esc(e2e.base)}</code> (local dev server, throw-away database copy) · real Chromium via Playwright</div>
 <div class="cards">
  <div class="card"><b style="color:var(--${pass === e2e.records.length ? 'ok' : 'bad'})">${pass}/${e2e.records.length}</b><span>end-to-end tests passed</span></div>
- <div class="card"><b>${sec.results.length - findings.length}/${sec.results.length}</b><span>security checks passed</span></div>
+ <div class="card"><b>${sec.results.length - findings.length - skippedSec}/${sec.results.length - skippedSec}</b><span>security checks passed${skippedSec ? ` (${skippedSec} not applicable, skipped)` : ''}</span></div>
  <div class="card"><b style="color:var(--bad)">${sevCount('High')} high · ${sevCount('Medium')} med · ${sevCount('Low')} low</b><span>security findings</span></div>
  <div class="card"><b>${vulns.high ?? '?'} high · ${vulns.moderate ?? '?'} mod · ${vulns.critical ?? 0} crit</b><span>production dependency vulnerabilities</span></div>
 </div>

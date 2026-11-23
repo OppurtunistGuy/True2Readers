@@ -58,9 +58,25 @@ async function req(method, url, { body, cookie, headers = {}, raw } = {}) {
 }
 const cookieOf = (r) => r.setCookie.map((c) => c.split(';')[0]).join('; ')
 
+// 'off' = the shipping build (accounts disabled); 'on' = a build made with
+// NEXT_PUBLIC_AUTH_ENABLED=true plus an isolated database (regression check for the parked accounts code).
+const AUTH_MODE = process.env.AUTH_MODE || 'off'
+const ON = AUTH_MODE === 'on'
+// Checks that need a working account system. Skipped (not passed) when accounts are off.
+const NEEDS_ACCOUNTS = new Set(['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08', 'S09', 'S10', 'S11', 'S24'])
+// Checks that only make sense when accounts are off.
+const ONLY_WHEN_OFF = new Set(['S30'])
+
 async function test(id, severity, title, fn) {
   const rec = { id, severity, title, status: 'PASS', evidence: [] }
   const ev = (m) => rec.evidence.push(m)
+  if ((!ON && NEEDS_ACCOUNTS.has(id)) || (ON && ONLY_WHEN_OFF.has(id))) {
+    rec.status = 'SKIP'
+    rec.why = ON ? 'applies only to the shipping build (accounts off)' : 'accounts are switched off in this build, so there is nothing to test'
+    results.push(rec)
+    console.log(`– ${id} [${severity}] ${title}\n     (skipped: ${rec.why})`)
+    return
+  }
   try {
     const verdict = await fn(ev)
     if (verdict && verdict.fail) {
@@ -78,13 +94,17 @@ async function test(id, severity, title, fn) {
 // ── set-up: one throwaway user ─────────────────────────────────────────────
 const email = `uat-sec-${rid}@example.test`
 const password = `Uat-${rid}-Pass!9`
-const signup = await req('POST', '/api/auth/signup', { body: { email, password } })
-if (signup.status !== 200) {
-  console.error('Set-up failed (cannot create the test user):', signup.status, signup.text.slice(0, 200))
-  process.exit(2)
+let me
+let session
+if (ON) {
+  const signup = await req('POST', '/api/auth/signup', { body: { email, password } })
+  if (signup.status !== 200) {
+    console.error('Set-up failed (cannot create the test user):', signup.status, signup.text.slice(0, 200))
+    process.exit(2)
+  }
+  me = signup.json.user
+  session = cookieOf(signup)
 }
-const me = signup.json.user
-const session = cookieOf(signup)
 
 // ── A. Authentication & sessions ───────────────────────────────────────────
 /** The default secret an older revision of src/lib/auth.ts shipped (found in git history, never printed). */
@@ -384,8 +404,11 @@ await test('S21', 'High', 'Secrets and databases are not committed to git', asyn
   ev(`commits that touched them: ${inHistory.length} (e.g. ${inHistory[0] || '-'})`)
   const gi = fs.readFileSync(path.join(REPO, '.gitignore'), 'utf8')
   ev(`.gitignore lists .env*: ${/^\.env\*/m.test(gi)} — but ignore rules do not apply to files that were already committed`)
-  const envKeys = fs.readFileSync(path.join(REPO, '.env'), 'utf8').split('\n').filter((l) => /^[A-Z_]+=/.test(l)).map((l) => l.split('=')[0])
-  ev(`variable names in the committed .env (values not shown): ${envKeys.join(', ')}`)
+  const envPath = path.join(REPO, '.env')
+  if (fs.existsSync(envPath)) {
+    const envKeys = fs.readFileSync(envPath, 'utf8').split('\n').filter((l) => /^[A-Z_]+=/.test(l)).map((l) => l.split('=')[0])
+    ev(`variable names in the local .env (values not shown; the file is not tracked): ${envKeys.join(', ')}`)
+  }
   if (bad.length) return { fail: `Committed: ${bad.join(', ')}. They stay in git history even after deletion.` }
 })
 
@@ -396,7 +419,32 @@ await test('S22', 'High', 'No hard-coded secret fallback in source', async (ev) 
   if (hits) return { fail: 'A default signing secret is committed to the repository and used whenever SESSION_SECRET is unset. Fail closed instead (throw at start-up) and rotate any deployed secret.' }
 })
 
+await test('S30', 'High', 'Accounts off: every account route is inert (404 / signed-out) and never touches a database', async (ev) => {
+  const src = fs.readFileSync(path.join(REPO, 'src/lib/features.ts'), 'utf8')
+  ev(`default is off in code: ${/NEXT_PUBLIC_AUTH_ENABLED === 'true'/.test(src)} (accounts turn on only when the variable is exactly "true" at build time)`)
+  const calls = [
+    ['POST', '/api/auth/login', { email: 'a@b.co', password: 'x' }],
+    ['POST', '/api/auth/signup', { email: 'a@b.co', password: 'Str0ng-pass-12345' }],
+    ['POST', '/api/auth/logout', {}],
+    ['GET', '/api/books/x/feedback'],
+    ['POST', '/api/books/x/feedback', { pacing: 3, tone: 3, dialogue: 3 }],
+  ]
+  const bad = []
+  for (const [m, u, body] of calls) {
+    const r = await req(m, u, body ? { body } : {})
+    ev(`${m} ${u} → HTTP ${r.status} in ${r.ms} ms, body ${J(r.json?.error ?? r.text.slice(0, 60))}`)
+    if (r.status !== 404 || r.ms > 1500 || /prisma|sqlite|database|P\d{4}/i.test(r.text)) bad.push(`${m} ${u}`)
+  }
+  const forged = await req('GET', '/api/auth/me', { cookie: 'trueread_session=anything.at-all' })
+  ev(`GET /api/auth/me (even with a made-up cookie) → HTTP ${forged.status}, body ${J(forged.json)}`)
+  if (forged.status !== 200 || forged.json?.user !== null) bad.push('GET /api/auth/me')
+  ev('the server under test may have DATABASE_URL pointing nowhere: a 404 (not a 500) proves the database was never opened')
+  if (bad.length) return { fail: `Account routes are not inert: ${bad.join(', ')}` }
+})
+
 fs.writeFileSync(path.join(OUT, 'security.json'), JSON.stringify({ base: BASE, when: new Date().toISOString(), results }, null, 2))
 const f = results.filter((r) => r.status === 'FINDING')
-console.log(`\n${results.length - f.length - results.filter((r) => r.status === 'ERROR').length} passed, ${f.length} findings, ${results.filter((r) => r.status === 'ERROR').length} errors`)
+const skipped = results.filter((r) => r.status === 'SKIP').length
+const errors = results.filter((r) => r.status === 'ERROR').length
+console.log(`\nmode: accounts ${AUTH_MODE} | ${results.length - f.length - errors - skipped} passed, ${f.length} findings, ${errors} errors, ${skipped} skipped`)
 process.exit(0)

@@ -201,12 +201,15 @@ export function NavMenu({ onOpenKeyboardHelp }: NavMenuProps) {
                       <DialogTitle className="text-xl font-black text-slate-900">Privacy Policy</DialogTitle>
                     </DialogHeader>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      Your privacy is sacred. True2Readers does not sell, broker, or monetize your reading history or personal data.
+                      True2Readers has no accounts and does not ask for your name, email or any personal details. We do not sell your data.
                     </p>
                     <ul className="space-y-1.5 text-xs text-slate-500 list-disc pl-4">
-                      <li>Saved books and recent searches are stored locally in your browser.</li>
-                      <li>User accounts are authenticated securely with encrypted session tokens.</li>
-                      <li>No third-party tracking pixels or behavioral ad cookies.</li>
+                      <li>Saved books, recent searches, reading history, reading speed and display choices are kept only in your browser&apos;s local storage. They are not sent to us, and clearing your browser data removes them.</li>
+                      <li>When you search, our server sends your search words to Google Books, Apple&apos;s book search and Open Library to fetch results. Those services receive the words from our server.</li>
+                      <li>Book covers are loaded directly from Apple, Google and Open Library (Internet Archive) servers, so those services can see your browser&apos;s IP address when a cover loads.</li>
+                      <li>Our hosting provider, Vercel, processes every request and keeps short-lived technical logs (for example the page requested, the time and any errors, which may include your IP address) to run and secure the site.</li>
+                      <li>We use no tracking or advertising cookies and no analytics. If you follow a link to a bookstore, that store has its own privacy practices.</li>
+                      <li>If we add accounts or other features that collect personal data, we will update this page before collecting anything.</li>
                     </ul>
                   </div>
                 )}

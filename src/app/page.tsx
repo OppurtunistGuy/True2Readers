@@ -18,6 +18,7 @@ import type { Book, BookSource, SearchResponse } from '@/components/trueread/typ
 import { AuthProvider } from '@/components/trueread/auth-context'
 import { AuthModal } from '@/components/trueread/auth-modal'
 import { AuthButton } from '@/components/trueread/auth-button'
+import { AUTH_ENABLED } from '@/lib/features'
 import { NavMenu } from '@/components/trueread/nav-menu'
 import { ReadingIntentView } from '@/components/trueread/reading-intent-view'
 import { IntentResultsView } from '@/components/trueread/intent-results-view'
@@ -455,7 +456,7 @@ export default function Page() {
               </button>
 
               {/* Sign In Button */}
-              <AuthButton />
+              {AUTH_ENABLED && <AuthButton />}
 
               {/* Saved Books button */}
               <button
@@ -670,7 +671,7 @@ export default function Page() {
       />
 
       {/* Global Auth Modal */}
-      <AuthModal />
+      {AUTH_ENABLED && <AuthModal />}
     </div>
     </AuthProvider>
   )

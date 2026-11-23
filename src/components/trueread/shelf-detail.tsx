@@ -35,6 +35,8 @@ export interface ShelfDetailProps {
   signedIn: boolean
   onSignIn: () => void
   feedbackCount: number
+  /** False while accounts are switched off: hides the feedback / sign-in section. */
+  accountsEnabled: boolean
   onCategoryClick: (cat: string) => void
 }
 
@@ -79,6 +81,7 @@ export function ShelfDetail({
   signedIn,
   onSignIn,
   feedbackCount,
+  accountsEnabled,
   onCategoryClick,
 }: ShelfDetailProps) {
   const pages = book.pageCount ? `~${book.pageCount} pages` : null
@@ -283,19 +286,21 @@ export function ShelfDetail({
             </Section>
           )}
 
-          {/* 4. Feedback, one line */}
-          <Section title="Your experience">
-            <p className="text-sm text-[#141414]/80">
-              {feedbackCount > 0 ? `${feedbackCount} reader submissions. ` : 'No reader feedback yet. '}
-              {signedIn ? (
-                'Submitting feedback is not available yet.'
-              ) : (
-                <button type="button" onClick={onSignIn} className="font-semibold text-[#1F3FB0] hover:underline">
-                  Sign in to share how it felt →
-                </button>
-              )}
-            </p>
-          </Section>
+          {/* 4. Feedback, one line (only when accounts exist) */}
+          {accountsEnabled && (
+            <Section title="Your experience">
+              <p className="text-sm text-[#141414]/80">
+                {feedbackCount > 0 ? `${feedbackCount} reader submissions. ` : 'No reader feedback yet. '}
+                {signedIn ? (
+                  'Submitting feedback is not available yet.'
+                ) : (
+                  <button type="button" onClick={onSignIn} className="font-semibold text-[#1F3FB0] hover:underline">
+                    Sign in to share how it felt →
+                  </button>
+                )}
+              </p>
+            </Section>
+          )}
         </div>
       </motion.article>
     </div>

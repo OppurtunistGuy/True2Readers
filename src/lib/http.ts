@@ -11,6 +11,11 @@ export function clientIp(req: Request): string {
   return req.headers.get('x-real-ip')?.trim() || 'unknown'
 }
 
+/** Response for account endpoints while accounts are switched off (see src/lib/features.ts). */
+export function accountsOff() {
+  return NextResponse.json({ error: 'Accounts are not available yet.' }, { status: 404 })
+}
+
 export function tooMany(retryAfter: number, message = 'Too many requests. Please try again later.') {
   return NextResponse.json({ error: message }, { status: 429, headers: { 'Retry-After': String(retryAfter) } })
 }
