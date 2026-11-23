@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { verifySessionToken } from '@/lib/auth'
+import { readJson } from '@/lib/http'
 
 export async function GET(
   req: Request,
@@ -30,8 +31,9 @@ export async function GET(
     const feedbacks = await db.bookStyleFeedback.findMany({
       where: { bookId },
       include: {
+        // Never load the email: this listing is public.
         user: {
-          select: { name: true, email: true },
+          select: { name: true },
         },
       },
       orderBy: { updatedAt: 'desc' },
@@ -63,7 +65,8 @@ export async function GET(
       dialogue: f.dialogue,
       note: f.note,
       createdAt: f.createdAt,
-      authorName: f.user.name || f.user.email.split('@')[0],
+      // Display name if the reader chose one, otherwise anonymous (no email-derived text).
+      authorName: f.user.name || 'Anonymous reader',
     }))
 
     return NextResponse.json({
@@ -119,8 +122,9 @@ export async function POST(
       )
     }
 
-    const body = await req.json()
-    const { pacing, tone, dialogue, note } = body
+    const parsed = await readJson(req, 8192)
+    if (!parsed.ok) return parsed.res
+    const { pacing, tone, dialogue, note } = parsed.data ?? {}
 
     const pVal = Number(pacing)
     const tVal = Number(tone)

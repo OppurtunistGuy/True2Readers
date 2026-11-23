@@ -64,7 +64,11 @@ async function openApp({ mobile = false, routes } = {}) {
   const page = await ctx.newPage()
   page.errors = []
   page.dialogs = []
+  page.csp = [] // Content-Security-Policy violations the browser reports
   page.on('pageerror', (e) => page.errors.push(String(e)))
+  page.on('console', (m) => {
+    if (/content security policy/i.test(m.text())) page.csp.push(m.text().slice(0, 220))
+  })
   page.on('dialog', (d) => {
     page.dialogs.push(d.message())
     d.dismiss().catch(() => {})
@@ -97,6 +101,9 @@ await test('E01', 'Home loads, quiz shown, Classic is the default view', async (
   const pressed = await p.locator('[aria-label="Browsing style"] button[aria-pressed="true"]').innerText()
   check('default view', pressed.toLowerCase(), 'classic')
   check('uncaught page errors', p.errors.length, 0)
+  const cspHeader = await p.evaluate(async () => (await fetch('/', { method: 'HEAD' })).headers.get('content-security-policy'))
+  check('Content-Security-Policy is sent with the page', !!cspHeader, true)
+  check('CSP violations reported by the browser', p.csp.length, 0)
   await shot(p, 'home-quiz-classic-default')
   await p.context().close()
 })
@@ -331,6 +338,7 @@ await test('E09', 'Shelf search: 24 real results, paging, no raw HTML, open a re
   await sleep(1500)
   const txt = await p.locator('main').innerText()
   check('no raw HTML tags in the book text', /<\/?(b|i|br|p|em|strong)\b[^>]*>/i.test(txt), false)
+  check('no CSP violations on search results (covers from Apple/Google/Open Library)', p.csp.length, 0)
   await shot(p, 'shelf-search-result-book-page')
   await p.context().close()
 })
@@ -487,6 +495,7 @@ await test('E16', 'Performance & stability on the shelf (indicative — dev serv
   note(`measured: ${JSON.stringify(perf)}`)
   check('layout shift (CLS) stays low', perf.cls, (c) => c < 0.1, '< 0.1')
   check('no uncaught page errors during the whole journey', p.errors.length, 0)
+  check('no CSP violations during the whole journey (fonts, covers, search all allowed)', p.csp.length, 0)
   await shot(p, 'shelf-steady-state')
   await p.context().close()
 })

@@ -37,12 +37,16 @@ const sh = (cmd) => {
 const J = (o) => JSON.stringify(o)
 const rid = crypto.randomBytes(4).toString('hex')
 
+// Each run uses its own client address (the app keys rate limits on x-forwarded-for,
+// which Vercel sets itself in production), so repeated runs never share a bucket.
+const RUN_IP = `203.0.113.${1 + Math.floor(Math.random() * 250)}`
+
 async function req(method, url, { body, cookie, headers = {}, raw } = {}) {
   const t0 = Date.now()
   const res = await fetch(BASE + url, {
     method,
     redirect: 'manual',
-    headers: { ...(body !== undefined && !raw ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...headers },
+    headers: { 'x-forwarded-for': RUN_IP, ...(body !== undefined && !raw ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...headers },
     body: raw ?? (body !== undefined ? J(body) : undefined),
   })
   const text = await res.text()
@@ -165,10 +169,23 @@ await test('S03', 'Low', 'Session cookie flags (HttpOnly, SameSite, Secure in pr
   if (!/secure:\s*process\.env\.NODE_ENV === 'production'/.test(src)) return { fail: 'Secure flag is not enabled for production.' }
 })
 
-await test('S04', 'Medium', 'Password policy: weak passwords are refused', async (ev) => {
-  const r = await req('POST', '/api/auth/signup', { body: { email: `uat-weak-${rid}@example.test`, password: 'abcd' } })
-  ev(`signup with password "abcd" → HTTP ${r.status}`)
-  if (r.status === 200) return { fail: 'A 4-character password was accepted (policy minimum is 4; no complexity or breached-password check).' }
+await test('S04', 'Medium', 'Password policy: weak passwords are refused, strong ones accepted', async (ev) => {
+  const tries = [
+    ['abcd', 'rejected'],
+    ['123456789', 'rejected'], // 9 chars
+    ['password123', 'rejected'], // common
+    ['aaaaaaaaaaaa', 'rejected'], // one repeated character
+    ['x'.repeat(129), 'rejected'], // too long (bounds scrypt cost)
+    [`Fine-${rid}-passphrase`, 'accepted'],
+  ]
+  const bad = []
+  for (const [pw, want] of tries) {
+    const r = await req('POST', '/api/auth/signup', { body: { email: `uat-pw-${crypto.randomBytes(3).toString('hex')}@example.test`, password: pw } })
+    const got = r.status === 200 ? 'accepted' : 'rejected'
+    ev(`password of ${pw.length} chars (${pw.length > 20 ? 'x…' : pw.replace(rid, '<id>')}) → HTTP ${r.status} ${J(r.json?.error ?? 'ok')}`)
+    if (got !== want) bad.push(`${pw.length} chars expected ${want}`)
+  }
+  if (bad.length) return { fail: `Policy gap: ${bad.join('; ')}` }
 })
 
 await test('S05', 'Medium', 'Login is rate-limited against password guessing', async (ev) => {
@@ -179,7 +196,21 @@ await test('S05', 'Medium', 'Login is rate-limited against password guessing', a
     codes[r.status] = (codes[r.status] || 0) + 1
   }
   ev(`40 wrong passwords for one account in ${Date.now() - t0} ms → status counts ${J(codes)}`)
+  const one = await req('POST', '/api/auth/login', { body: { email, password: 'wrong' } })
+  ev(`next attempt → HTTP ${one.status}, Retry-After=${J(one.headers.get('retry-after'))}, message=${J(one.json?.error)}`)
   if (!codes[429]) return { fail: 'No request was throttled or blocked (no 429, no lockout). Passwords can be guessed at the server speed.' }
+  if ((codes[401] || 0) > 10) return { fail: `Too many guesses allowed before throttling (${codes[401]}).` }
+  if (!one.headers.get('retry-after')) return { fail: '429 has no Retry-After header.' }
+})
+
+await test('S24', 'Medium', 'Rate limiting does not let an attacker lock the real user out', async (ev) => {
+  // The account above is now throttled for RUN_IP. The legitimate owner, on another address, must still get in.
+  const ownerIp = `198.51.100.${1 + Math.floor(Math.random() * 250)}`
+  const attacker = await req('POST', '/api/auth/login', { body: { email, password } }) // correct password, but from the throttled address
+  const owner = await req('POST', '/api/auth/login', { body: { email, password }, headers: { 'x-forwarded-for': ownerIp } })
+  ev(`from the throttled address (even with the right password) → HTTP ${attacker.status}`)
+  ev(`from a different address with the right password → HTTP ${owner.status}`)
+  if (owner.status !== 200) return { fail: 'A different address was locked out too: an attacker could deny the real user access by spamming wrong passwords.' }
 })
 
 await test('S06', 'Low', 'Account enumeration: signup vs login reveal whether an email exists', async (ev) => {
@@ -245,8 +276,7 @@ await test('S11', 'Medium', "Public feedback listing does not expose users' emai
 await test('S12', 'Medium', 'Reviews endpoint does not invent reviews or attribute them to real brands', async (ev) => {
   const r = await req('GET', `/api/books/anybook/fetched-reviews?title=${encodeURIComponent('<b>x</b>')}`)
   const q = r.json?.extractedQuotes ?? []
-  ev(`returns ${q.length} "reviews", e.g. reviewer=${J(q[0]?.reviewer)}, source=${J(q[0]?.sourceName)}; source label=${J(r.json?.source)}`)
-  ev(`numbers are derived from a hash of the book id (deterministic), not from real reviews`)
+  ev(`HTTP ${r.status}; returns ${q.length} "reviews"; message=${J(r.json?.error ?? null)}`)
   const used = sh(`git grep -n "fetched-reviews" -- src ":!src/app/api"`).trim() || '(not referenced by the UI)'
   ev(`UI references: ${used.split('\n')[0]}`)
   if (q.length) return { fail: 'The endpoint fabricates review quotes attributed to "Goodreads Verified" / "Amazon Editorial" etc. The site promises it never fabricates reviews; remove the endpoint or make it return real data only.' }
@@ -279,9 +309,12 @@ await test('S14', 'Low', 'Search caps query length and does not echo internal er
 await test('S15', 'Medium', 'Search is rate-limited (protects the upstream Google/Apple quota)', async (ev) => {
   const codes = {}
   const t0 = Date.now()
-  await Promise.all(Array.from({ length: 30 }, (_, i) => req('GET', `/api/books/search?q=probe${i}`).then((r) => (codes[r.status] = (codes[r.status] || 0) + 1))))
-  ev(`30 parallel searches in ${Date.now() - t0} ms → ${J(codes)}`)
+  await Promise.all(Array.from({ length: 80 }, (_, i) => req('GET', `/api/books/search?q=probe${i}`).then((r) => (codes[r.status] = (codes[r.status] || 0) + 1))))
+  ev(`80 parallel searches in ${Date.now() - t0} ms (policy: 60 per minute per address) → ${J(codes)}`)
+  const other = await req('GET', '/api/books/search?q=dune', { headers: { 'x-forwarded-for': '192.0.2.77' } })
+  ev(`a different address is unaffected → HTTP ${other.status}`)
   if (!codes[429]) return { fail: 'No throttling. The code comments note that Google already rate-limits (HTTP 429) this app, so a script can exhaust the quota for every user.' }
+  if (other.status === 429) return { fail: 'The limit is global, not per address.' }
 })
 
 await test('S16', 'Low', 'Enrich endpoint: bad input rejected, ISBN is sanitised, no SSRF via book fields', async (ev) => {
@@ -311,10 +344,16 @@ await test('S18', 'Medium', 'Security response headers', async (ev) => {
     'referrer-policy': 'strict-origin-when-cross-origin',
   }
   for (const [k, v] of Object.entries(want)) ev(`${k}: ${J(h(k))} ${h(k)?.toLowerCase() === v.toLowerCase() ? '✔' : '✘ expected ' + v}`)
-  const missing = ['content-security-policy', 'strict-transport-security', 'permissions-policy'].filter((k) => !h(k))
-  ev(`missing: ${missing.join(', ') || 'none'}`)
-  ev('note: Strict-Transport-Security is normally added by Vercel on HTTPS; verify on the deployed site.')
-  if (!h('content-security-policy')) return { fail: 'No Content-Security-Policy header. A CSP is the main safety net if any XSS slips in.' }
+  const csp = h('content-security-policy') || ''
+  ev(`content-security-policy: ${csp ? '✔ present' : '✘ missing'}`)
+  for (const d of ["default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-src 'none'"]) ev(`  CSP has ${d}: ${csp.includes(d)}`)
+  const scriptSrc = csp.match(/script-src ([^;]*)/)?.[1] || ''
+  ev(`  script-src = ${scriptSrc} (no wildcard or https: allowed: ${!/(^|\s)(\*|https:)(\s|$)/.test(scriptSrc)})`)
+  ev(`permissions-policy: ${J(h('permissions-policy'))}`)
+  ev(`strict-transport-security: ${J(h('strict-transport-security'))} (sent only in production builds; Vercel also adds it on HTTPS)`)
+  if (!csp) return { fail: 'No Content-Security-Policy header. A CSP is the main safety net if any XSS slips in.' }
+  if (!/frame-ancestors 'none'/.test(csp) || !/object-src 'none'/.test(csp) || /(^|\s)(\*|https:)(\s|$)/.test(scriptSrc)) return { fail: 'CSP is present but too permissive.' }
+  if (!h('permissions-policy')) return { fail: 'No Permissions-Policy header.' }
 })
 
 await test('S19', 'Low', 'Cross-origin: no permissive CORS on API routes', async (ev) => {

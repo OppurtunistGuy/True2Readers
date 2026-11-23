@@ -13,6 +13,12 @@
 
 import type { SearchResponse } from '@/components/trueread/types'
 import { executeFastSearch } from '@/lib/providers'
+import { rateLimit } from '@/lib/rate-limit'
+import { clientIp, tooMany } from '@/lib/http'
+
+const MAX_QUERY_LENGTH = 200
+// Each search fans out to Google/Apple, whose quotas are shared by all users.
+const SEARCHES_PER_MINUTE = 60
 
 // Help Next.js treat this as always-dynamic (query-driven). Optional but explicit.
 export const dynamic = 'force-dynamic'
@@ -26,6 +32,9 @@ function parseIntParam(value: string | null, fallback: number): number {
 
 export async function GET(request: Request): Promise<Response> {
   try {
+    const gate = rateLimit(`search:${clientIp(request)}`, SEARCHES_PER_MINUTE, 60_000)
+    if (!gate.ok) return tooMany(gate.retryAfter, 'Too many searches. Please slow down for a moment.')
+
     const url = new URL(request.url)
     const rawQ = url.searchParams.get('q')
 
@@ -37,6 +46,12 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     const q = rawQ.trim()
+    if (q.length > MAX_QUERY_LENGTH) {
+      return Response.json(
+        { error: `Query is too long (max ${MAX_QUERY_LENGTH} characters).` },
+        { status: 400 },
+      )
+    }
 
     let startIndex = parseIntParam(url.searchParams.get('startIndex'), 0)
     if (startIndex < 0) startIndex = 0
@@ -52,12 +67,7 @@ export async function GET(request: Request): Promise<Response> {
     })
   } catch (err) {
     console.error('[/api/books/search]', err)
-    return Response.json(
-      {
-        error: 'Failed to fetch books',
-        detail: String((err as { message?: unknown })?.message ?? err),
-      },
-      { status: 502 },
-    )
+    // The cause is logged above; do not echo upstream/internal error text to clients.
+    return Response.json({ error: 'Failed to fetch books' }, { status: 502 })
   }
 }

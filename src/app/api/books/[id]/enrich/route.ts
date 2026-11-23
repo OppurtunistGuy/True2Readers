@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
 import { enrichSelectedBook } from '@/lib/providers'
 import type { Book } from '@/components/trueread/types'
+import { rateLimit } from '@/lib/rate-limit'
+import { clientIp, readJson, tooMany } from '@/lib/http'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { book } = body as { book: Book }
+    // Triggers an outbound Open Library request, so limit it like search.
+    const gate = rateLimit(`enrich:${clientIp(req)}`, 60, 60_000)
+    if (!gate.ok) return tooMany(gate.retryAfter)
+
+    const parsed = await readJson(req, 100_000)
+    if (!parsed.ok) return parsed.res
+    const { book } = (parsed.data ?? {}) as { book: Book }
 
     if (!book || !book.id) {
       return NextResponse.json({ error: 'Book object with id is required.' }, { status: 400 })
