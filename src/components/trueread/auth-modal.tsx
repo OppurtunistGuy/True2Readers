@@ -26,6 +26,16 @@ export function AuthModal() {
     }
   }, [authModalOpen])
 
+  // Esc closes the dialog (only the X and the backdrop did before).
+  React.useEffect(() => {
+    if (!authModalOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeAuthModal()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [authModalOpen, closeAuthModal])
+
   if (!authModalOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +78,9 @@ export function AuthModal() {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={mode === 'login' ? 'Sign in' : 'Create account'}
           className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
         >
           {/* Close button */}
