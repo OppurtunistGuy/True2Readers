@@ -8,6 +8,7 @@ import type { Book } from '@/components/trueread/types'
 import { SearchBar } from './search-bar'
 import { cn } from '@/lib/utils'
 import { playPosterOpen } from '@/lib/poster-open'
+import { paletteFor } from '@/lib/cover-palette'
 
 /**
  * ShelfView — an alternative "bent VHS shelf" way to browse a list of books.
@@ -52,21 +53,6 @@ export interface ShelfViewProps {
   onActiveChange?: (index: number) => void
 }
 
-const PALETTE: Array<[string, string]> = [
-  ['#1d1b1a', '#efe5cf'],
-  ['#2543b4', '#efe5cf'],
-  ['#e2472d', '#efe5cf'],
-  ['#efe5cf', '#1d1b1a'],
-  ['#2f5d50', '#efe5cf'],
-  ['#d9a441', '#1d1b1a'],
-  ['#5a3e6b', '#efe5cf'],
-]
-
-function paletteFor(title: string): [string, string] {
-  let h = 0
-  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0
-  return PALETTE[h % PALETTE.length]
-}
 
 /** Best cover URL we can try: the book's own, else Open Library by ISBN (404s when unknown). */
 function coverSrc(b: Book): string | undefined {

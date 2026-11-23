@@ -71,7 +71,7 @@ export function ReaderExperienceSection({ profile }: ReaderExperienceSectionProp
             <h2 className="text-sm font-bold text-slate-900">What readers experience</h2>
           </div>
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600">
-            Reader experience prototype
+            Curated by True2Readers
           </span>
         </div>
 

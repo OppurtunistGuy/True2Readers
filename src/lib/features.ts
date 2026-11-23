@@ -11,3 +11,6 @@
  * a database. See the parked Neon + Better Auth plan before doing that.
  */
 export const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true'
+
+/** The Classic book page's generated "AI breakdown" is mock data; hidden, not deleted. */
+export const SHOW_MOCK_ANALYSIS = false

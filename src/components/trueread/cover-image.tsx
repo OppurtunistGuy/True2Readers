@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { BookMarked } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
 import { cn } from '@/lib/utils'
+import { paletteFor } from '@/lib/cover-palette'
 
 export interface CoverImageProps {
   book: Book
@@ -27,13 +28,15 @@ export interface CoverImageProps {
 export function CoverImage({ book, className, sizes }: CoverImageProps) {
   const hasCover = typeof book.cover === 'string' && book.cover.length > 0
   const [loaded, setLoaded] = React.useState(false)
+  const [broken, setBroken] = React.useState(false)
 
   // Reset the loaded flag when the cover URL changes (different book).
   React.useEffect(() => {
     setLoaded(false)
+    setBroken(false)
   }, [book.cover])
 
-  if (hasCover) {
+  if (hasCover && !broken) {
     return (
       <div
         className={cn(
@@ -59,6 +62,7 @@ export function CoverImage({ book, className, sizes }: CoverImageProps) {
           unoptimized
           loading="lazy"
           onLoad={() => setLoaded(true)}
+          onError={() => setBroken(true)}
           className={cn(
             'transition-transform duration-500 group-hover:scale-105',
             loaded
@@ -72,19 +76,21 @@ export function CoverImage({ book, className, sizes }: CoverImageProps) {
     )
   }
 
-  // Fallback placeholder — navy gradient with title + book icon
+  // No cover, or it failed to load: a generated cover (title + author on a
+  // colour picked from the title), the same look the Shelf uses.
+  const [bg, fg] = paletteFor(book.title)
   return (
     <div
-      className={cn(
-        'relative aspect-[2/3] overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 ring-1 ring-slate-200 shadow-sm',
-        className,
-      )}
-      aria-label={`Cover not available for ${book.title}`}
+      className={cn('relative aspect-[2/3] overflow-hidden rounded-lg ring-1 ring-slate-200 shadow-sm', className)}
+      style={{ background: bg, color: fg }}
+      role="img"
+      aria-label={`Generated cover for ${book.title}`}
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center">
-        <BookMarked className="size-6 text-slate-400" strokeWidth={1.75} />
-        <span className="line-clamp-3 text-xs font-semibold leading-tight text-slate-100">
-          {book.title}
+      <div className="absolute inset-0 flex flex-col items-center justify-between gap-2 p-3 text-center">
+        <BookMarked className="size-4 opacity-70" strokeWidth={1.75} aria-hidden="true" />
+        <span className="line-clamp-4 font-serif text-sm font-semibold leading-tight">{book.title}</span>
+        <span className="line-clamp-2 text-[10px] font-semibold uppercase tracking-[0.14em]">
+          {book.authors?.[0] ?? ''}
         </span>
       </div>
     </div>

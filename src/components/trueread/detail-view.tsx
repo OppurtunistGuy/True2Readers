@@ -58,7 +58,7 @@ import { extractOverview, generateWhyInterest } from '@/lib/book-resolver'
 import { getReaderExperience } from '@/lib/reader-experiences'
 import { ReaderExperienceSection } from './reader-experience-section'
 import { ShelfDetail } from './shelf-detail'
-import { AUTH_ENABLED } from '@/lib/features'
+import { AUTH_ENABLED, SHOW_MOCK_ANALYSIS } from '@/lib/features'
 
 export interface DetailViewProps {
   book: Book
@@ -666,7 +666,7 @@ export function DetailView({
           {/* RIGHT COLUMN (3 cols): Reader Experience Framework (6), About Author, Commitment */}
           <div className="flex flex-col gap-5 lg:col-span-3">
             {/* Reader Experience Framework (6 Dimensions) */}
-            {!lean && <AiBreakdown book={currentBook} />}
+            {!lean && SHOW_MOCK_ANALYSIS && <AiBreakdown book={currentBook} />}
 
             {/* About the Author (Dynamic) */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs text-xs space-y-2">
