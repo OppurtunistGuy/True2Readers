@@ -12,7 +12,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
 
 const BASE = process.env.BASE_URL || 'http://localhost:3001'
 const OUT = process.env.EVIDENCE_DIR || './uat-evidence'
@@ -83,16 +83,64 @@ const me = signup.json.user
 const session = cookieOf(signup)
 
 // ── A. Authentication & sessions ───────────────────────────────────────────
+/** The default secret an older revision of src/lib/auth.ts shipped (found in git history, never printed). */
+function historicalSecret() {
+  for (const h of sh('git log --all --format=%H -- src/lib/auth.ts').split('\n').filter(Boolean)) {
+    const m = sh(`git show ${h}:src/lib/auth.ts`).match(/process\.env\.SESSION_SECRET\s*\|\|\s*'([^']+)'/)
+    if (m) return m[1]
+  }
+  return null
+}
+
 await test('S01', 'High', 'Session tokens cannot be forged with a publicly known secret', async (ev) => {
   const src = fs.readFileSync(path.join(REPO, 'src/lib/auth.ts'), 'utf8')
-  const fallback = src.match(/process\.env\.SESSION_SECRET\s*\|\|\s*'([^']+)'/)?.[1]
-  ev(`code: SECRET_KEY = process.env.SESSION_SECRET || '<hard-coded fallback present: ${!!fallback}>'`)
+  const inCode = src.match(/process\.env\.SESSION_SECRET\s*\|\|\s*'([^']+)'/)?.[1]
+  const fallback = inCode || historicalSecret()
+  ev(`hard-coded fallback in current code: ${!!inCode}; a default secret exists in git history: ${!!historicalSecret()}`)
   if (!fallback) return
   const payload = Buffer.from(J({ userId: me.id, email: me.email, name: null, exp: Date.now() + 3600_000 })).toString('base64url')
   const sig = crypto.createHmac('sha256', fallback).update(payload).digest('base64url')
   const forged = await req('GET', '/api/auth/me', { cookie: `trueread_session=${payload}.${sig}` })
-  ev(`forged token signed with the fallback secret → GET /api/auth/me: HTTP ${forged.status}, user=${J(forged.json?.user?.email ?? null)}`)
+  ev(`token signed with that known default secret → GET /api/auth/me: HTTP ${forged.status}, user=${J(forged.json?.user?.email ?? null)}`)
   if (forged.json?.user) return { fail: 'A token signed with the hard-coded fallback secret was accepted. If SESSION_SECRET is not set in production, anyone who knows a user id can impersonate that user.' }
+})
+
+await test('S23', 'High', 'Auth module fails closed in production when SESSION_SECRET is missing or weak', async (ev) => {
+  const authUrl = new URL('file:///' + path.join(REPO, 'src/lib/auth.ts').replace(/\\/g, '/')).href
+  const script = `
+    const a = await import(${J(authUrl)});
+    const out = {};
+    const mk = () => { try { return a.createSessionToken({ userId: 'u1', email: 'a@b.c' }) } catch (e) { return 'THROWS: ' + e.message } };
+    const t = mk();
+    out.sign = t.startsWith('THROWS') ? t : 'signed';
+    out.verifyGarbage = a.verifySessionToken('x.y');
+    out.verifyOldStyle = t.startsWith('THROWS') ? null : a.verifySessionToken(t) && 'valid';
+    console.log(JSON.stringify(out));`
+  const run = (env) => {
+    try {
+      return JSON.parse(
+        execFileSync(process.execPath, ['--no-warnings', '--experimental-strip-types', '--input-type=module', '-e', script], {
+          env: { ...process.env, SESSION_SECRET: '', ...env },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+          .toString()
+          .trim()
+          .split('\n')
+          .pop(),
+      )
+    } catch (e) {
+      return { error: String(e.stderr || e.message).slice(0, 200) }
+    }
+  }
+  const none = run({ NODE_ENV: 'production' })
+  const weak = run({ NODE_ENV: 'production', SESSION_SECRET: 'short' })
+  const good = run({ NODE_ENV: 'production', SESSION_SECRET: crypto.randomBytes(32).toString('hex') })
+  ev(`production, no SESSION_SECRET → ${J(none)}`)
+  ev(`production, 5-char SESSION_SECRET → ${J(weak)}`)
+  ev(`production, 64-char SESSION_SECRET → ${J(good)}`)
+  if (!/THROWS/.test(none.sign || '')) return { fail: 'Signing still works in production without a secret.' }
+  if (!/THROWS/.test(weak.sign || '')) return { fail: 'A weak (short) secret is accepted.' }
+  if (good.sign !== 'signed' || good.verifyOldStyle !== 'valid') return { fail: 'A proper secret no longer works (round trip failed).' }
 })
 
 await test('S02', 'Medium', 'Tampered session tokens are rejected', async (ev) => {
@@ -290,7 +338,8 @@ await test('S20', 'High', 'Source, secrets and database are not downloadable fro
 // ── E. Repository hygiene ──────────────────────────────────────────────────
 await test('S21', 'High', 'Secrets and databases are not committed to git', async (ev) => {
   const tracked = sh('git ls-files').split('\n')
-  const bad = tracked.filter((f) => /^\.env($|\.)/.test(f) || /\.(db|sqlite|pem|key|p12)$/i.test(f) || /^db\//.test(f))
+  // `.env.example` is meant to be committed (placeholders only), so it is excluded.
+  const bad = tracked.filter((f) => (/^\.env($|\.)/.test(f) && f !== '.env.example') || /\.(db|sqlite|pem|key|p12)$/i.test(f) || /^db\//.test(f))
   ev(`tracked sensitive-looking files: ${bad.join(', ') || 'none'}`)
   const inHistory = sh('git log --all --oneline -- .env db/custom.db').trim().split('\n').filter(Boolean)
   ev(`commits that touched them: ${inHistory.length} (e.g. ${inHistory[0] || '-'})`)
@@ -302,8 +351,9 @@ await test('S21', 'High', 'Secrets and databases are not committed to git', asyn
 })
 
 await test('S22', 'High', 'No hard-coded secret fallback in source', async (ev) => {
-  const hits = sh(`git grep -nE "\\|\\|\\s*'[^']{12,}'" -- src/lib/auth.ts`).trim()
-  ev(`src/lib/auth.ts: ${hits.replace(/'[^']+'$/, "'<redacted>'")}`)
+  const hits = fs.readFileSync(path.join(REPO, 'src/lib/auth.ts'), 'utf8').split('\n').filter((l) => /\|\|\s*'[^']{12,}'/.test(l)).join('\n')
+  ev(`working-tree src/lib/auth.ts lines with a long string fallback: ${hits ? hits.replace(/'[^']+'/, "'<redacted>'") : 'none'}`)
+  ev('NOTE: the old default secret remains in git history. If the deployed site never had SESSION_SECRET set, rotate it (set one now) — setting it invalidates every token signed with the old default.')
   if (hits) return { fail: 'A default signing secret is committed to the repository and used whenever SESSION_SECRET is unset. Fail closed instead (throw at start-up) and rotate any deployed secret.' }
 })
 

@@ -1,6 +1,28 @@
 import crypto from 'crypto'
 
-const SECRET_KEY = process.env.SESSION_SECRET || 'trueread-secret-key-2026-v1'
+let devSecret: string | null = null
+
+/**
+ * Signing secret for session tokens. There is deliberately NO built-in default:
+ *  - production: SESSION_SECRET must be set (>= 32 chars). If it is not, signing
+ *    throws and verifying treats every token as invalid, so auth fails closed
+ *    while the rest of the site keeps working.
+ *  - development/test: a random per-process secret is used (sessions reset on
+ *    restart), so no secret is ever committed to the repository.
+ * Resolved lazily so `next build` does not need the variable.
+ */
+function getSecret(): string {
+  const configured = process.env.SESSION_SECRET
+  if (configured && configured.length >= 32) return configured
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET is missing or shorter than 32 characters')
+  }
+  if (!devSecret) {
+    devSecret = crypto.randomBytes(32).toString('hex')
+    console.warn('[auth] SESSION_SECRET not set (or < 32 chars): using a random per-process secret for development.')
+  }
+  return devSecret
+}
 
 export interface SessionPayload {
   userId: string
@@ -45,7 +67,7 @@ export function createSessionToken(payload: Omit<SessionPayload, 'exp'>): string
   const jsonStr = JSON.stringify(data)
   const base64Data = Buffer.from(jsonStr).toString('base64url')
 
-  const hmac = crypto.createHmac('sha256', SECRET_KEY)
+  const hmac = crypto.createHmac('sha256', getSecret())
   hmac.update(base64Data)
   const signature = hmac.digest('base64url')
 
@@ -60,11 +82,14 @@ export function verifySessionToken(token: string): SessionPayload | null {
     const [base64Data, signature] = token.split('.')
     if (!base64Data || !signature) return null
 
-    const hmac = crypto.createHmac('sha256', SECRET_KEY)
+    const hmac = crypto.createHmac('sha256', getSecret())
     hmac.update(base64Data)
     const expectedSig = hmac.digest('base64url')
 
-    if (signature !== expectedSig) return null
+    // Constant-time comparison (a plain !== leaks timing information).
+    const a = Buffer.from(signature)
+    const b = Buffer.from(expectedSig)
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
 
     const jsonStr = Buffer.from(base64Data, 'base64url').toString('utf-8')
     const payload: SessionPayload = JSON.parse(jsonStr)
