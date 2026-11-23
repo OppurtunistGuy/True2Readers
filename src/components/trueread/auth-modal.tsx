@@ -89,7 +89,7 @@ export function AuthModal() {
               )}
             </div>
             <h2 className="text-xl font-bold text-slate-900">
-              {mode === 'login' ? 'Welcome back to TrueRead' : 'Create your TrueRead account'}
+              {mode === 'login' ? 'Welcome back to True2Readers' : 'Create your True2Readers account'}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               {mode === 'login'

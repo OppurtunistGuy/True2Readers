@@ -24,6 +24,9 @@ import { IntentResultsView } from '@/components/trueread/intent-results-view'
 import type { UserReadingIntent } from '@/lib/intent-matcher'
 import { Switch } from '@/components/ui/switch'
 import { Bookmark, Compass } from 'lucide-react'
+import { ShelfView } from '@/components/trueread/shelf-view'
+import './shelf-theme.css'
+import { matchBooksByIntent } from '@/lib/intent-matcher'
 
 const MAX_RESULTS = 24
 /** Max recent searches persisted to localStorage. */
@@ -38,6 +41,33 @@ const LS_KEY_LIST = 'trueread:reading-list:v1'
 const LS_KEY_RECENTLY_VIEWED = 'trueread:recently-viewed:v1'
 /** "Mark as read" records — keyed by book id, value is an ISO timestamp. */
 const LS_KEY_READ_BOOKS = 'trueread:read-books:v1'
+/** Which listing UI is active: the original grid or the experimental 3D shelf. */
+const LS_KEY_UI_MODE = 'trueread:ui-mode:v1'
+
+type UiMode = 'classic' | 'shelf'
+
+/** Human-readable chips for a reading intent (shared by the shelf header). */
+function intentChipLabels(intent: UserReadingIntent): string[] {
+  const feel: Record<string, string> = {
+    fast_gripping: 'Fast & gripping',
+    thought_provoking: 'Thought-provoking',
+    emotional: 'Emotional',
+    immersive: 'Immersive',
+    relaxing: 'Relaxing',
+  }
+  const effort = { low: 'Easy escape', moderate: 'Some focus', deep: 'Deep dive' }[intent.effort]
+  const focus: Record<string, string> = {
+    story: 'Story',
+    characters: 'Characters',
+    ideas: 'Ideas',
+    writing: 'Writing',
+  }
+  return [
+    ...intent.feel.map((f) => feel[f]).filter(Boolean),
+    effort,
+    ...intent.focus.map((f) => focus[f]).filter(Boolean),
+  ]
+}
 
 type View =
   | { name: 'intent' }
@@ -90,9 +120,15 @@ export default function Page() {
     LS_KEY_READ_BOOKS,
     {},
   )
+  const [uiMode, setUiMode] = useLocalStorage<UiMode>(LS_KEY_UI_MODE, 'classic')
   const [readingListOpen, setReadingListOpen] = React.useState(false)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = React.useState(false)
   const lastResultsRef = React.useRef<LastResults | null>(null)
+  // The mood-quiz intent whose picks the user last viewed, so "Back" from a
+  // book detail returns to those picks instead of the home search.
+  const lastIntentRef = React.useRef<UserReadingIntent | null>(null)
+  // Which book the shelf was centred on, restored when returning from a detail.
+  const shelfIndexRef = React.useRef(0)
   // Tracks the source of the most recent search so a card click (which only
   // receives a Book) can still carry the correct source into the detail view.
   const sourceRef = React.useRef<BookSource>('google')
@@ -202,6 +238,7 @@ export default function Page() {
 
   const handleSearch = React.useCallback(
     async (q: string, page = 1) => {
+      shelfIndexRef.current = 0
       const query = q.trim()
       if (query.length === 0) {
         lastResultsRef.current = null
@@ -313,6 +350,8 @@ export default function Page() {
         page: last.page,
         source: last.source,
       })
+    } else if (lastIntentRef.current) {
+      setView({ name: 'intent-results', intent: lastIntentRef.current })
     } else {
       setView({ name: 'home' })
     }
@@ -331,6 +370,8 @@ export default function Page() {
   }, [])
 
   const handleIntentSubmit = React.useCallback((intent: UserReadingIntent) => {
+    lastIntentRef.current = intent
+    shelfIndexRef.current = 0
     setView({ name: 'intent-results', intent })
   }, [])
 
@@ -348,14 +389,20 @@ export default function Page() {
 
   const [isAdultMode, setIsAdultMode] = React.useState(false)
 
+  // Shelf mode shows every curated book (not just the top 10), ranked by intent.
+  const shelfIntentBooks = React.useCallback(
+    (intent: UserReadingIntent) => matchBooksByIntent(intent, 100),
+    [],
+  )
+
   // A stable key per view for AnimatePresence exit animations.
   const viewKey =
     view.name === 'intent'
       ? 'intent'
       : view.name === 'intent-results'
-        ? `intent-results-${view.intent.feel.join('-')}`
+        ? `intent-results-${view.intent.feel.join('-')}-${uiMode}`
         : view.name === 'results'
-          ? `results-${view.query}-${view.page}`
+          ? `results-${view.query}-${view.page}-${uiMode}`
           : view.name === 'detail'
             ? `detail-${view.book.id}`
             : 'home'
@@ -368,14 +415,40 @@ export default function Page() {
 
         {/* Global sticky header — glass morphism */}
         <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl shadow-2xs">
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-            <Logo size="md" onClick={handleLogoClick} />
-            <div className="flex items-center gap-2.5 sm:gap-4">
+          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Logo size="md" onClick={handleLogoClick} />
+              {/* Classic / Shelf view switch — same data, two ways to browse. */}
+              <div
+                role="group"
+                aria-label="Browsing style"
+                className="inline-flex rounded-full border border-slate-200 bg-white p-0.5 text-[11px] font-semibold shadow-2xs"
+              >
+                {(['classic', 'shelf'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setUiMode(m)}
+                    aria-pressed={uiMode === m}
+                    className={`rounded-full px-2.5 py-1 capitalize transition-colors ${
+                      uiMode === m
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
               {/* Reading Mood Match Quick Button */}
               <button
                 type="button"
                 onClick={() => setView({ name: 'intent' })}
-                className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/70 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all hover:bg-blue-100/80 shadow-2xs active:scale-95"
+                className={`items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/70 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all hover:bg-blue-100/80 shadow-2xs active:scale-95 ${
+                  uiMode === 'shelf' ? 'hidden sm:inline-flex' : 'inline-flex'
+                }`}
               >
                 <Compass className="size-3.5 text-blue-600" />
                 <span>Reading Mood</span>
@@ -392,7 +465,7 @@ export default function Page() {
                 aria-label={`Saved books: ${readingList.length}`}
               >
                 <Bookmark className="size-3.5 text-slate-500" />
-                <span>Saved Books</span>
+                <span className={uiMode === 'shelf' ? 'hidden sm:inline' : undefined}>Saved Books</span>
                 {readingList.length > 0 && (
                   <span className="ml-0.5 inline-flex size-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
                     {readingList.length}
@@ -402,7 +475,8 @@ export default function Page() {
 
               {/* 18+ Mode Toggle */}
               <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                <span>18+ Mode</span>
+                <span className={uiMode === 'shelf' ? 'hidden sm:inline' : undefined}>18+ Mode</span>
+                {uiMode === 'shelf' && <span className="sm:hidden">18+</span>}
                 <Switch
                   checked={isAdultMode}
                   onCheckedChange={setIsAdultMode}
@@ -414,7 +488,10 @@ export default function Page() {
               <button
                 type="button"
                 onClick={() => setKeyboardHelpOpen(true)}
-                className="inline-flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95 shadow-2xs"
+                className={`size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95 shadow-2xs ${
+                  // Shelf mode: hidden for now (shortcuts still work, and the menu still has the entry).
+                  uiMode === 'shelf' ? 'hidden' : 'inline-flex'
+                }`}
                 aria-label="Show keyboard shortcuts"
                 title="Help & Shortcuts (?)"
               >
@@ -444,7 +521,31 @@ export default function Page() {
               />
             )}
 
-            {view.name === 'intent-results' && (
+            {view.name === 'intent-results' && uiMode === 'shelf' && (
+              <ShelfView
+                books={shelfIntentBooks(view.intent).map((m) => m.book)}
+                heading="Books that fit what you're looking for"
+                subheading="Curated picks matched to your reading mood."
+                chips={intentChipLabels(view.intent)}
+                backLabel="Adjust reading mood"
+                onBack={handleAdjustIntent}
+                onSelectBook={handleSelectBook}
+                onSearch={(q) => handleSearch(q, 1)}
+                isLoading={isLoading}
+                bookmarkedIds={bookmarkedIds}
+                onToggleBookmark={toggleBookmark}
+                initialIndex={shelfIndexRef.current}
+                onActiveChange={(i) => {
+                  shelfIndexRef.current = i
+                }}
+                getNote={(b) => {
+                  const m = shelfIntentBooks(view.intent).find((x) => x.book.id === b.id)
+                  return m ? { why: m.whySurfaced, mismatch: m.potentialMismatch } : undefined
+                }}
+              />
+            )}
+
+            {view.name === 'intent-results' && uiMode === 'classic' && (
               <IntentResultsView
                 intent={view.intent}
                 onSelectBook={handleSelectBook}
@@ -469,7 +570,34 @@ export default function Page() {
               />
             )}
 
-            {view.name === 'results' && (
+            {view.name === 'results' && uiMode === 'shelf' && (
+              <ShelfView
+                books={view.results}
+                heading={`Results for “${view.query}”`}
+                subheading={`About ${view.totalItems} results from ${
+                  view.source === 'apple' ? 'Apple Books' : 'Google Books'
+                }`}
+                backLabel="Back to mood"
+                onBack={handleBackFromResults}
+                onSelectBook={handleSelectBook}
+                onSearch={(q) => handleSearch(q, 1)}
+                isLoading={isLoading}
+                bookmarkedIds={bookmarkedIds}
+                onToggleBookmark={toggleBookmark}
+                initialIndex={shelfIndexRef.current}
+                onActiveChange={(i) => {
+                  shelfIndexRef.current = i
+                }}
+                pagination={{
+                  page: view.page,
+                  totalItems: view.totalItems,
+                  maxResults: MAX_RESULTS,
+                  onPageChange: (p) => handleSearch(view.query, p),
+                }}
+              />
+            )}
+
+            {view.name === 'results' && uiMode === 'classic' && (
               <ResultsView
                 query={view.query}
                 results={view.results}
@@ -489,11 +617,17 @@ export default function Page() {
             )}
 
             {view.name === 'detail' && (
+              <div className={uiMode === 'shelf' ? 'shelf-theme' : undefined}>
               <DetailView
+                lean={uiMode === 'shelf'}
                 book={view.book}
                 source={view.source}
                 backLabel={
-                  lastResultsRef.current ? 'Back to results' : 'Back to mood discovery'
+                  lastResultsRef.current
+                    ? 'Back to results'
+                    : lastIntentRef.current
+                      ? 'Back to your picks'
+                      : 'Back to mood discovery'
                 }
                 onBack={handleBackFromDetail}
                 onSearch={(q) => handleSearch(q, 1)}
@@ -504,6 +638,7 @@ export default function Page() {
                 onToast={toast}
                 onSelectBook={handleSelectBook}
               />
+              </div>
             )}
           </motion.div>
         </AnimatePresence>

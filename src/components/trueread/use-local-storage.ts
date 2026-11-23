@@ -21,21 +21,29 @@ export function useLocalStorage<T>(
   fallback: T,
 ): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = React.useState<T>(fallback)
+  // True once the stored value has been read. Without this, the persist effect
+  // below writes `fallback` over the stored value before it is applied (and in
+  // Strict Mode's double-mount the second read then sees the overwritten value).
+  const hydrated = React.useRef(false)
 
   // Read once on mount (and whenever the key changes).
   React.useEffect(() => {
+    hydrated.current = false
     try {
       const raw = window.localStorage.getItem(key)
-      if (raw == null) return
-      const parsed = JSON.parse(raw) as T
-      setValue(parsed)
+      if (raw != null) setValue(JSON.parse(raw) as T)
     } catch {
       // Ignore parse errors / blocked storage — keep fallback.
     }
+    // Deferred so the persist effect in this same flush still sees `false`.
+    queueMicrotask(() => {
+      hydrated.current = true
+    })
   }, [key])
 
-  // Persist on every value change.
+  // Persist on every value change (after the stored value has been read).
   React.useEffect(() => {
+    if (!hydrated.current) return
     try {
       window.localStorage.setItem(key, JSON.stringify(value))
     } catch {

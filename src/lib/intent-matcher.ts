@@ -42,22 +42,20 @@ export function profileToBook(p: ReaderExperienceProfile): Book {
  * Score and rank curated books against user intent.
  */
 export function matchBooksByIntent(
-  intent: UserReadingIntent
+  intent: UserReadingIntent,
+  limit = 10
 ): MatchedIntentBook[] {
   const { feel, effort, focus, genre } = intent
 
-  const scored = CURATED_READER_EXPERIENCES.map((p) => {
-    let score = 0
+  // A selected genre is a filter, not just a nudge: books outside it are dropped.
+  const gNorm = genre && genre.toLowerCase() !== 'all' ? genre.toLowerCase() : null
+  const inGenre = (p: ReaderExperienceProfile) =>
+    !gNorm ||
+    p.genre.toLowerCase().includes(gNorm) ||
+    p.tags.some((t) => t.toLowerCase().includes(gNorm))
 
-    // Match genre filter if present
-    if (genre && genre !== 'all') {
-      const gNorm = genre.toLowerCase()
-      if (p.genre.toLowerCase().includes(gNorm) || p.tags.some((t) => t.toLowerCase().includes(gNorm))) {
-        score += 15
-      } else {
-        score -= 5
-      }
-    }
+  const scored = CURATED_READER_EXPERIENCES.filter(inGenre).map((p) => {
+    let score = 0
 
     // Match Pace / Feel
     if (feel.includes('fast_gripping') && p.intentMatch.pace.includes('fast')) score += 10
@@ -90,5 +88,5 @@ export function matchBooksByIntent(
   })
 
   // Sort descending by match score and return top results (approx 10)
-  return scored.sort((a, b) => b.score - a.score).slice(0, 10)
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit)
 }

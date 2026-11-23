@@ -6,6 +6,20 @@ import type { Book } from '@/components/trueread/types'
 import type { IBookProvider, ProviderSearchResult } from './types'
 import { splitTitleAndSubtitle } from './google-provider'
 
+/** Apple descriptions arrive as HTML (<b>, <br />, entities); the UI renders plain text. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;|&#xa0;/gi, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function mapAppleVolume(item: any): Book {
   const rawTitle = typeof item.trackName === 'string' ? item.trackName : 'Untitled'
   const { title, subtitle } = splitTitleAndSubtitle(rawTitle)
@@ -27,7 +41,7 @@ export function mapAppleVolume(item: any): Book {
 
   let description: string | undefined
   if (typeof item.description === 'string' && item.description.length > 0) {
-    description = item.description
+    description = stripHtml(item.description) || undefined
   }
 
   const categories: string[] | undefined = Array.isArray(item.genres)

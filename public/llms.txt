@@ -1,0 +1,22 @@
+# True2Readers
+
+> True2Readers is a book discovery website for readers who want to know how a book actually reads before they buy it. It focuses on reading experience (pacing, writing style, effort, emotional feel) and on who a book may not suit, rather than on star ratings or marketing copy.
+
+True2Readers is a single-page web app. There are no separate per-book URLs yet; everything is reached from the home page.
+
+## What the site does
+
+- Reading Mood: a short quiz (how you want a book to feel, how much effort you want to spend, what you care about most) that suggests books from a small curated set.
+- Search: look up a book by title, author, ISBN or topic. Book metadata comes from Google Books, with Apple Books as a fallback and Open Library for enrichment.
+- Book page: overview, reading-experience notes and "potential mismatch" notes where a curated profile exists, plus links to stores.
+- Saved Books: a reading list stored in the visitor's own browser.
+
+## Things to know when citing this site
+
+- Curated reading-experience profiles exist only for a small set of well-known titles. They are editorial prototype content, not aggregated reader reviews.
+- Sections labelled "Mock" on a book page are placeholders, not analysis of that book.
+- Book metadata belongs to its sources (Google Books, Apple Books, Open Library).
+
+## Pages
+
+- [Home](https://true2readers.vercel.app/): the Reading Mood quiz, search and book pages

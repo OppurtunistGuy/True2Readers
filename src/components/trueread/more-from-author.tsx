@@ -56,8 +56,14 @@ export function MoreFromAuthor({ book, onSelect }: MoreFromAuthorProps) {
         // Exclude the current book + dedupe by id. Cap at 5 for layout.
         const seen = new Set<string>([book.id])
         const filtered: Book[] = []
+        const norm = (s: string) => s.trim().toLowerCase()
+        const wantAuthor = norm(primaryAuthor)
         for (const b of data.results) {
           if (seen.has(b.id)) continue
+          // The search is fuzzy: keep only books that really list this author,
+          // and skip other editions of the book being viewed.
+          if (!b.authors.some((a) => norm(a) === wantAuthor)) continue
+          if (norm(b.title) === norm(book.title)) continue
           seen.add(b.id)
           filtered.push(b)
           if (filtered.length >= 5) break

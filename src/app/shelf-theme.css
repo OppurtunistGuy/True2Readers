@@ -1,0 +1,66 @@
+/*
+ * Shelf theme — re-skins the existing book detail page (without touching its
+ * markup) to match the Shelf view: paper, ink and cobalt, squarer corners.
+ * Everything is scoped under .shelf-theme, which page.tsx only adds in Shelf
+ * mode, so the Classic look is unaffected.
+ */
+.shelf-theme {
+  --shelf-paper: #ece8e0;
+  --shelf-sheet: #f3f0ea;
+  --shelf-ink: #141414;
+  --shelf-muted: #6d6a63;
+  --shelf-cobalt: #1f3fb0;
+  background: var(--shelf-paper);
+  color: var(--shelf-ink);
+  min-height: calc(100svh - 64px);
+}
+
+.shelf-theme [class~='bg-white'],
+.shelf-theme [class*='bg-white/'] {
+  background-color: var(--shelf-sheet);
+}
+.shelf-theme [class~='bg-slate-50'],
+.shelf-theme [class*='bg-slate-50/'],
+.shelf-theme [class~='bg-slate-100'] {
+  background-color: var(--shelf-paper);
+}
+
+.shelf-theme [class*='border-slate-'],
+.shelf-theme [class*='ring-slate-'] {
+  border-color: rgba(20, 20, 20, 0.16);
+}
+
+.shelf-theme [class*='text-slate-9'],
+.shelf-theme [class*='text-slate-8'] {
+  color: var(--shelf-ink);
+}
+.shelf-theme [class*='text-slate-4'],
+.shelf-theme [class*='text-slate-5'],
+.shelf-theme [class*='text-slate-6'] {
+  color: var(--shelf-muted);
+}
+
+.shelf-theme [class*='text-blue-'] {
+  color: var(--shelf-cobalt);
+}
+.shelf-theme [class~='bg-blue-600'],
+.shelf-theme [class~='bg-blue-500'] {
+  background-color: var(--shelf-cobalt);
+}
+.shelf-theme [class*='bg-blue-50'],
+.shelf-theme [class*='border-blue-'] {
+  border-color: rgba(31, 63, 176, 0.35);
+}
+
+.shelf-theme [class*='rounded-2xl'],
+.shelf-theme [class*='rounded-3xl'] {
+  border-radius: 4px;
+}
+.shelf-theme [class*='rounded-xl'],
+.shelf-theme [class*='rounded-lg'] {
+  border-radius: 3px;
+}
+
+.shelf-theme [class*='shadow-'] {
+  box-shadow: none;
+}

@@ -190,10 +190,6 @@
     margin: 0.1rem 0.6rem 0 0;
     padding: 0.05rem 0.15rem;
     color: oklch(0.55 0.18 256);
-    background: linear-gradient(135deg, oklch(0.55 0.18 256), oklch(0.48 0.15 250));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
   }
 
   /* Subtle floating animation for hero accents */

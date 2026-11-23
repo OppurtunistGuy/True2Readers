@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
 import {
+  Bookmark,
   Gauge,
   Info,
   Share2,
@@ -56,6 +57,7 @@ import { useAuth } from './auth-context'
 import { extractOverview, generateWhyInterest } from '@/lib/book-resolver'
 import { getReaderExperience } from '@/lib/reader-experiences'
 import { ReaderExperienceSection } from './reader-experience-section'
+import { ShelfDetail } from './shelf-detail'
 
 export interface DetailViewProps {
   book: Book
@@ -69,6 +71,12 @@ export interface DetailViewProps {
   onToggleRead?: (book: Book) => void
   onToast?: (toast: { title: string; description?: string; duration?: number }) => void
   onSelectBook?: (book: Book) => void
+  /**
+   * Lean layout (used by the Shelf view): hides secondary items for now —
+   * enlarge cover, print, share, extra retailers, the six-dimension framework
+   * and "More from the author". Nothing is removed; Classic passes nothing.
+   */
+  lean?: boolean
 }
 
 interface RealFeedbackState {
@@ -106,8 +114,11 @@ export function DetailView({
   backLabel = 'Back to results',
   onBack,
   onSearch,
+  isBookmarked = false,
+  onToggleBookmark,
   onToast,
   onSelectBook,
+  lean = false,
 }: DetailViewProps) {
   const { user, openAuthModal } = useAuth()
   const [currentBook, setCurrentBook] = React.useState<Book>(initialBook)
@@ -274,10 +285,46 @@ export function DetailView({
   const descriptionText = extractOverview(currentBook.description || currentBook.overview) || (currentBook.description || currentBook.overview || '').replace(/<[^>]*>/g, '').replace(/&#xa0;/gi, ' ').trim()
   const hasDescription = descriptionText.length > 0
 
-  const pubYear = currentBook.year || '2018'
+  // Real values only — no invented year or categories when the source has none.
+  const pubYear = currentBook.year || '—'
   const categoriesList = currentBook.categories && currentBook.categories.length > 0
     ? currentBook.categories
-    : ['Management & Leadership', 'Self-Improvement', 'Psychology']
+    : []
+
+  // Shelf mode: a flowing layout (preview first, then reader experience).
+  if (lean) {
+    return (
+      <>
+        <ShelfDetail
+          book={currentBook}
+          backLabel={backLabel}
+          onBack={onBack}
+          onSearch={onSearch}
+          primaryAuthor={primaryAuthor}
+          year={currentBook.year}
+          categories={categoriesList}
+          descriptionText={descriptionText}
+          previewSnippetText={previewSnippetText}
+          amazonLink={amazonLink}
+          googleLink={googleLink}
+          profile={readerExperienceProfile}
+          isBookmarked={isBookmarked}
+          onToggleBookmark={onToggleBookmark}
+          onOpenPace={() => setPaceOpen(true)}
+          signedIn={!!user}
+          onSignIn={openAuthModal}
+          feedbackCount={realFeedback?.count ?? 0}
+          onCategoryClick={handleCategoryClick}
+        />
+        <PaceCalculator
+          isOpen={paceOpen}
+          onClose={() => setPaceOpen(false)}
+          pageCount={currentBook.pageCount}
+          title={currentBook.title}
+        />
+      </>
+    )
+  }
 
   return (
     <div className="relative min-h-screen bg-slate-50/60 pb-16 pt-4 text-slate-900">
@@ -290,7 +337,7 @@ export function DetailView({
               onClick={onBack}
               className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors"
             >
-              <span>← Back to results</span>
+              <span>← {backLabel}</span>
             </button>
           ) : (
             <div />
@@ -319,6 +366,7 @@ export function DetailView({
 
               <button
                 type="button"
+                hidden={lean}
                 onClick={() => setCoverLightboxOpen(true)}
                 className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-all"
               >
@@ -342,18 +390,18 @@ export function DetailView({
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">ISBN-13</dt>
                   <dd className="font-semibold text-slate-800 font-mono text-[11px]">
-                    {currentBook.isbn13 || currentBook.isbn10 || currentBook.isbn || '978-0735211292'}
+                    {currentBook.isbn13 || currentBook.isbn10 || currentBook.isbn || '—'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">Genre</dt>
                   <dd className="font-semibold text-slate-800 text-right truncate max-w-[140px]">
-                    {categoriesList[0] || 'Management & Leadership'}
+                    {categoriesList[0] || '—'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
                   <dt className="text-slate-400 font-medium">Pages</dt>
-                  <dd className="font-semibold text-slate-800">~{currentBook.pageCount || 320} pages</dd>
+                  <dd className="font-semibold text-slate-800">{currentBook.pageCount ? `~${currentBook.pageCount} pages` : '—'}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-slate-400 font-medium">Language</dt>
@@ -377,6 +425,7 @@ export function DetailView({
                 </a>
 
                 <a
+                  hidden={lean}
                   href={appleLink}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -387,6 +436,7 @@ export function DetailView({
                 </a>
 
                 <a
+                  hidden={lean}
                   href={googleLink}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -433,8 +483,24 @@ export function DetailView({
                     <Clock className="size-3.5 text-slate-500" />
                     Custom pace
                   </button>
+                  {onToggleBookmark && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleBookmark(currentBook)}
+                      aria-pressed={isBookmarked}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold border shadow-2xs transition-all ${
+                        isBookmarked
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-700'
+                      }`}
+                    >
+                      <Bookmark className={`size-3.5 ${isBookmarked ? 'fill-current' : 'text-slate-500'}`} />
+                      {isBookmarked ? 'Saved' : 'Save'}
+                    </button>
+                  )}
                   <button
                     type="button"
+                    hidden={lean}
                     onClick={handlePrint}
                     className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200 shadow-2xs hover:bg-slate-50 transition-all"
                   >
@@ -443,6 +509,7 @@ export function DetailView({
                   </button>
                   <button
                     type="button"
+                    hidden={lean}
                     onClick={handleShare}
                     className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200 shadow-2xs hover:bg-slate-50 transition-all"
                   >
@@ -464,9 +531,11 @@ export function DetailView({
                     {cat}
                   </button>
                 ))}
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
-                  +2
-                </span>
+                {categoriesList.length > 0 && (
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
+                    +2
+                  </span>
+                )}
               </div>
             </div>
 
@@ -592,7 +661,7 @@ export function DetailView({
           {/* RIGHT COLUMN (3 cols): Reader Experience Framework (6), About Author, Commitment */}
           <div className="flex flex-col gap-5 lg:col-span-3">
             {/* Reader Experience Framework (6 Dimensions) */}
-            <AiBreakdown book={currentBook} />
+            {!lean && <AiBreakdown book={currentBook} />}
 
             {/* About the Author (Dynamic) */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs text-xs space-y-2">
@@ -634,7 +703,7 @@ export function DetailView({
         </div>
       </motion.article>
 
-      {onSelectBook && (
+      {onSelectBook && !lean && (
         <div className="mx-auto mt-8 w-full max-w-7xl px-4 md:px-6">
           <MoreFromAuthor book={currentBook} onSelect={onSelectBook} />
         </div>

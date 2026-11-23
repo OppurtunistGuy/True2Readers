@@ -108,17 +108,22 @@ const SHORTCUT_GROUPS: { title: string; shortcuts: Shortcut[] }[] = [
  * Triggered by pressing `?` (when not typing in an input).
  */
 export function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
-  // Close on Escape is handled by the parent (which already listens for Escape).
   React.useEffect(() => {
     if (isOpen) {
       // Lock body scroll while the dialog is open
       const prev = document.body.style.overflow
       document.body.style.overflow = 'hidden'
+      // Close on Escape (the dialog advertises "Press Esc to close"; no parent handled it).
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose()
+      }
+      window.addEventListener('keydown', onKey)
       return () => {
         document.body.style.overflow = prev
+        window.removeEventListener('keydown', onKey)
       }
     }
-  }, [isOpen])
+  }, [isOpen, onClose])
 
   return (
     <AnimatePresence>
