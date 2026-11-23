@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Bookmark, BookOpen } from 'lucide-react'
 import type { Book } from '@/components/trueread/types'
 import { SearchBar } from './search-bar'
 import { cn } from '@/lib/utils'
+import { playPosterOpen } from '@/lib/poster-open'
 
 /**
  * ShelfView — an alternative "bent VHS shelf" way to browse a list of books.
@@ -158,6 +159,21 @@ export function ShelfView({
   const markFailed = React.useCallback((id: string) => {
     setFailed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
   }, [])
+  // How a book opens is the reader's choice; remembered on this device.
+  const [openStyle, setOpenStyle] = React.useState<'poster' | 'swing'>(() => {
+    try {
+      return localStorage.getItem('shelf-open-style') === 'swing' ? 'swing' : 'poster'
+    } catch {
+      return 'poster'
+    }
+  })
+  const chooseOpenStyle = (s: 'poster' | 'swing') => {
+    setOpenStyle(s)
+    try {
+      localStorage.setItem('shelf-open-style', s)
+    } catch {}
+  }
+  const posterBusy = React.useRef(false)
   const [opening, setOpening] = React.useState<{
     book: Book
     rect: DOMRect
@@ -201,10 +217,17 @@ export function ShelfView({
         onSelectBook(book)
         return
       }
+      if (openStyle === 'poster') {
+        if (posterBusy.current) return
+        posterBusy.current = true
+        playPosterOpen(el.getBoundingClientRect(), () => onSelectBook(book))
+        window.setTimeout(() => (posterBusy.current = false), 1500)
+        return
+      }
       setOpening({ book, rect: el.getBoundingClientRect() })
       window.setTimeout(() => onSelectBook(book), 480)
     },
-    [books, onSelectBook, failed],
+    [books, onSelectBook, failed, openStyle],
   )
 
   // Animation loop + layout.
@@ -780,6 +803,30 @@ export function ShelfView({
               <span className="hidden sm:inline"> · drag, scroll or use ← →</span>
               <span className="sm:hidden"> · swipe</span>
             </p>
+
+            <div
+              role="group"
+              aria-label="How books open"
+              className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5C5952]"
+            >
+              <span>Opening</span>
+              {(['poster', 'swing'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={openStyle === s}
+                  onClick={() => chooseOpenStyle(s)}
+                  className={cn(
+                    'border px-2 py-1 transition-colors',
+                    openStyle === s
+                      ? 'border-[#1F3FB0] bg-[#1F3FB0] text-white'
+                      : 'border-[#141414]/40 hover:border-[#1F3FB0] hover:text-[#1F3FB0]',
+                  )}
+                >
+                  {s === 'poster' ? 'Page turn' : 'Book swing'}
+                </button>
+              ))}
+            </div>
 
             {pagination && totalPages > 1 && (
               <div className="flex items-center gap-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1F3FB0]">

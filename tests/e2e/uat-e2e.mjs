@@ -285,6 +285,7 @@ await test('E08', 'Opening animation: cover swings open, page grows to full scre
   await setMode(p, 'shelf')
   await submitQuiz(p)
   await shelfReady(p)
+  await p.getByRole('button', { name: 'Book swing' }).click() // the original opening, chosen by the reader
   const samples = await p.evaluate(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
     const btn = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === 'open book')
@@ -574,6 +575,45 @@ await test('E18', 'Crawlers: the raw HTML (no JavaScript) carries real text, str
   const sm = await (await fetch(BASE + '/sitemap.xml')).text()
   check('sitemap lists the home page', /<loc>https?:\/\/[^<]+\/<\/loc>/.test(sm), true)
   check('sitemap has no invented lastmod', sm.includes('<lastmod>'), false)
+})
+
+await test('E19', 'Page-turn opening is the default; the reader can switch to Book swing and the choice is remembered', async () => {
+  const p = await openApp()
+  await setMode(p, 'shelf')
+  await submitQuiz(p)
+  await shelfReady(p)
+  const pressed = async (name) => (await p.getByRole('button', { name }).getAttribute('aria-pressed')) === 'true'
+  check('Page turn is selected by default', await pressed('Page turn'), true)
+  // Sample the full-screen paper sheet while the page turns.
+  const samples = await p.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const btn = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === 'open book')
+    btn.click()
+    const out = []
+    for (let i = 0; i < 40; i++) {
+      await sleep(40)
+      const s = [...document.body.children].find((c) => c.getAttribute?.('aria-hidden') === 'true' && c.style.position === 'fixed' && c.style.zIndex === '100')
+      out.push(s ? { w: Math.round(s.getBoundingClientRect().width), clip: s.style.clipPath.startsWith('path(') } : { gone: true })
+    }
+    return out
+  })
+  const live = samples.filter((s) => !s.gone)
+  check('paper sheet grows to the full width', Math.max(...live.map((s) => s.w)) >= 1270, true)
+  check('torn-edge reveal runs (clip-path hole)', live.some((s) => s.clip), true)
+  check('overlay removed afterwards', samples.some((s) => s.gone), true)
+  await p.locator('h1').waitFor({ timeout: 15000 })
+  await p.context().close()
+  const q = await openApp()
+  await setMode(q, 'shelf')
+  await submitQuiz(q)
+  await shelfReady(q)
+  await q.getByRole('button', { name: 'Book swing' }).click()
+  check('choice is stored', await q.evaluate(() => localStorage.getItem('shelf-open-style')), 'swing')
+  await q.reload()
+  await submitQuiz(q)
+  await shelfReady(q)
+  check('Book swing is still selected after a reload', (await q.getByRole('button', { name: 'Book swing' }).getAttribute('aria-pressed')) === 'true', true)
+  await q.context().close()
 })
 
 await browser.close()
