@@ -63,7 +63,9 @@ export async function GET(request: Request): Promise<Response> {
     const body = await executeFastSearch(q, startIndex, maxResults)
 
     return Response.json(body, {
-      headers: { 'Cache-Control': 'no-store' },
+      // Shared (CDN) cache for 5 minutes: identical searches are answered without calling
+      // Google/Apple again (faster, and it protects their shared quota). Errors are not cached.
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     })
   } catch (err) {
     console.error('[/api/books/search]', err)

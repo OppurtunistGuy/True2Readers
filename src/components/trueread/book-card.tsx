@@ -108,7 +108,7 @@ export function BookCard({
             </p>
             <div className="mt-0.5 flex items-center gap-2">
               {book.year && (
-                <span className="text-xs tabular-nums text-slate-400">{book.year}</span>
+                <span className="text-xs tabular-nums text-slate-500">{book.year}</span>
               )}
               <StarRating rating={book.rating} size="sm" showValue={false} />
             </div>
@@ -222,7 +222,7 @@ export function BookCard({
           </p>
           <div className="mt-0.5 flex items-center gap-2">
             {book.year && (
-              <span className="text-xs tabular-nums text-slate-400">{book.year}</span>
+              <span className="text-xs tabular-nums text-slate-500">{book.year}</span>
             )}
             <StarRating rating={book.rating} size="sm" showValue={false} />
           </div>

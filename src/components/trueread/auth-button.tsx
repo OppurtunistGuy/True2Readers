@@ -52,7 +52,7 @@ export function AuthButton() {
           />
           <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg ring-1 ring-slate-900/5">
             <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
-              <p className="text-[10px] uppercase font-bold text-slate-400">Signed in as</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500">Signed in as</p>
               <p className="truncate text-xs font-medium text-slate-900">{user.email}</p>
             </div>
             <button

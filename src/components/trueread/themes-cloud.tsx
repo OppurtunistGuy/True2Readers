@@ -60,7 +60,7 @@ export function ThemesCloud({ text, onSearch, max = 8 }: ThemesCloudProps) {
           >
             Themes &amp; keywords
           </h3>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-slate-500">
             derived from description
           </span>
         </div>

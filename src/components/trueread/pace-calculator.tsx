@@ -197,14 +197,14 @@ export function PaceCalculator({
                   className="[&_[data-slot=slider-track]]:bg-slate-200 [&_[data-slot=slider-range]]:bg-blue-600 [&_[data-slot=slider-thumb]]:border-blue-600 [&_[data-slot=slider-thumb]]:bg-white"
                   aria-label="Reading speed in words per minute"
                 />
-                <div className="mt-1 flex justify-between text-[10px] text-slate-400 tabular-nums">
+                <div className="mt-1 flex justify-between text-[10px] text-slate-500 tabular-nums">
                   <span>{MIN_WPM} wpm</span>
                   <span>{MAX_WPM} wpm</span>
                 </div>
 
                 {/* Presets */}
                 <div className="mt-4">
-                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
                     Quick presets
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -238,7 +238,7 @@ export function PaceCalculator({
                 <div className="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
                   {hasRealPageCount && personalizedMinutes != null ? (
                     <>
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                         Your personalized read time
                       </p>
                       <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
@@ -298,7 +298,7 @@ export function PaceCalculator({
 
               {/* Footer */}
               <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-3">
-                <p className="flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+                <p className="flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-slate-500">
                   <span>Your pace is saved on this device.</span>
                   <span aria-hidden="true">·</span>
                   <span>

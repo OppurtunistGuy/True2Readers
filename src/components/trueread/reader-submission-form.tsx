@@ -187,7 +187,7 @@ export function ReaderSubmissionForm({
               onChange={(e) => handleSliderChange(dim.key, Number(e.target.value))}
               className="h-2 w-full cursor-pointer rounded-lg bg-slate-100 accent-blue-600"
             />
-            <div className="flex justify-between text-[9px] text-slate-400 font-medium px-0.5">
+            <div className="flex justify-between text-[9px] text-slate-500 font-medium px-0.5">
               <span>{dim.minLabel}</span>
               <span>{dim.maxLabel}</span>
             </div>
@@ -204,7 +204,7 @@ export function ReaderSubmissionForm({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Share what kept you hooked or caused dis-interest..."
-            className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
         </div>
 

@@ -383,31 +383,31 @@ export function DetailView({
               <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-2">Book Details</h3>
               <dl className="space-y-2 text-slate-600">
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
-                  <dt className="text-slate-400 font-medium">Author</dt>
+                  <dt className="text-slate-500 font-medium">Author</dt>
                   <dd className="font-semibold text-slate-800 text-right truncate max-w-[140px]">{primaryAuthor}</dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
-                  <dt className="text-slate-400 font-medium">First Published</dt>
+                  <dt className="text-slate-500 font-medium">First Published</dt>
                   <dd className="font-semibold text-slate-800">{pubYear}</dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
-                  <dt className="text-slate-400 font-medium">ISBN-13</dt>
+                  <dt className="text-slate-500 font-medium">ISBN-13</dt>
                   <dd className="font-semibold text-slate-800 font-mono text-[11px]">
                     {currentBook.isbn13 || currentBook.isbn10 || currentBook.isbn || '—'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
-                  <dt className="text-slate-400 font-medium">Genre</dt>
+                  <dt className="text-slate-500 font-medium">Genre</dt>
                   <dd className="font-semibold text-slate-800 text-right truncate max-w-[140px]">
                     {categoriesList[0] || '—'}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2 border-b border-slate-100/80 pb-1.5">
-                  <dt className="text-slate-400 font-medium">Pages</dt>
+                  <dt className="text-slate-500 font-medium">Pages</dt>
                   <dd className="font-semibold text-slate-800">{currentBook.pageCount ? `~${currentBook.pageCount} pages` : '—'}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-slate-400 font-medium">Language</dt>
+                  <dt className="text-slate-500 font-medium">Language</dt>
                   <dd className="font-semibold text-slate-800">English</dd>
                 </div>
               </dl>
@@ -535,7 +535,7 @@ export function DetailView({
                   </button>
                 ))}
                 {categoriesList.length > 0 && (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                     +2
                   </span>
                 )}
@@ -552,7 +552,7 @@ export function DetailView({
                 {descriptionText ||
                   'A concise factual overview of the central subject matter, concepts, and themes explored throughout the book.'}
               </p>
-              <p className="text-[11px] text-slate-400 italic pt-1 border-t border-slate-100/60">
+              <p className="text-[11px] text-slate-500 italic pt-1 border-t border-slate-100/60">
                 Based on available book metadata and publisher information.
               </p>
             </div>
@@ -595,7 +595,7 @@ export function DetailView({
                         <span>Open in Google Books</span>
                         <ExternalLink className="size-3.5" />
                       </a>
-                      <p className="text-[10px] text-slate-500 text-center">
+                      <p className="text-[10px] text-slate-400 text-center">
                         Official preview provided via Google Books.
                       </p>
                     </div>
@@ -603,7 +603,7 @@ export function DetailView({
 
                   {/* Right Pane (Sample Excerpt) */}
                   <div className="p-6 md:col-span-7 bg-white text-slate-900 font-serif leading-relaxed text-xs">
-                    <p className="text-[10px] font-sans uppercase font-bold tracking-widest text-slate-400 mb-2">
+                    <p className="text-[10px] font-sans uppercase font-bold tracking-widest text-slate-500 mb-2">
                       EXCERPT / SAMPLE
                     </p>
                     <h4 className="text-sm font-sans font-extrabold text-slate-900 mb-4">
@@ -617,7 +617,7 @@ export function DetailView({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
                 <span>Authentic source preview</span>
                 <a
                   href={googleLink}
@@ -638,7 +638,7 @@ export function DetailView({
                   <Users className="size-4 text-blue-600" />
                   <h3 className="text-xs font-bold text-slate-900">Community Reader Feedback</h3>
                 </div>
-                <span className="text-[10px] font-semibold text-slate-400">
+                <span className="text-[10px] font-semibold text-slate-500">
                   {realFeedback && realFeedback.count > 0
                     ? `${realFeedback.count} submissions`
                     : 'No feedback yet'}

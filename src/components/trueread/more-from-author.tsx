@@ -108,7 +108,7 @@ export function MoreFromAuthor({ book, onSelect }: MoreFromAuthorProps) {
           More from{' '}
           <span className="text-blue-700">{primaryAuthor}</span>
         </h2>
-        <span className="ml-auto text-xs text-slate-400">
+        <span className="ml-auto text-xs text-slate-500">
           {related.length} more book{related.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -144,7 +144,7 @@ export function MoreFromAuthor({ book, onSelect }: MoreFromAuthorProps) {
               {b.title}
             </h3>
             {b.year && (
-              <p className="text-[11px] text-slate-400">{b.year}</p>
+              <p className="text-[11px] text-slate-500">{b.year}</p>
             )}
           </motion.button>
         ))}

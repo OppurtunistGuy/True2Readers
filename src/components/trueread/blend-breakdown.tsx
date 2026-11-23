@@ -167,7 +167,7 @@ export function BlendBreakdown({ book, feedbackData }: BlendBreakdownProps) {
             </div>
           </div>
 
-          <p className="mt-4 text-[10px] text-slate-400">
+          <p className="mt-4 text-[10px] text-slate-500">
             Algorithmic parsing derived from description & structural markers.
           </p>
         </div>
@@ -224,7 +224,7 @@ export function BlendBreakdown({ book, feedbackData }: BlendBreakdownProps) {
               </p>
             </div>
           ) : (
-            <p className="mt-4 text-[10px] text-slate-400">
+            <p className="mt-4 text-[10px] text-slate-500">
               Real community feedback average.
             </p>
           )}

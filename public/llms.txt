@@ -20,3 +20,4 @@ True2Readers is a single-page web app. There are no separate per-book URLs yet; 
 ## Pages
 
 - [Home](https://true2readers.vercel.app/): the Reading Mood quiz, search and book pages
+- [Questions and answers](https://true2readers.vercel.app/#questions): plain-text answers about what the site is, where its data comes from and what the reading-experience notes are

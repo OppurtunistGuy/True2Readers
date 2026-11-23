@@ -70,7 +70,7 @@ export function ReaderExperienceSection({ profile }: ReaderExperienceSectionProp
             <BookOpenCheck className="size-4 text-blue-600" />
             <h2 className="text-sm font-bold text-slate-900">What readers experience</h2>
           </div>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600">
             Reader experience prototype
           </span>
         </div>
@@ -87,7 +87,7 @@ export function ReaderExperienceSection({ profile }: ReaderExperienceSectionProp
                   <div className={`p-1 rounded-lg border ${dim.color}`}>
                     <Icon className="size-3.5" />
                   </div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     {dim.title}
                   </span>
                 </div>

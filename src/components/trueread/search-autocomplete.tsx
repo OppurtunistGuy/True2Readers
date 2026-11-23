@@ -209,7 +209,7 @@ export function SearchAutocomplete({
                   <span className="flex-1 truncate text-sm font-medium">
                     {s.text}
                   </span>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
                     {TYPE_LABEL[s.type]}
                   </span>
                 </button>
@@ -219,7 +219,7 @@ export function SearchAutocomplete({
 
           {/* Footer hint */}
           <div className="border-t border-slate-100 px-4 py-2">
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[10px] text-slate-500">
               <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 text-[9px] font-medium">
                 ↑↓
               </kbd>{' '}

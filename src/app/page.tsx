@@ -4,14 +4,11 @@ import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/trueread/logo'
-import { HomeView } from '@/components/trueread/home-view'
-import { ResultsView } from '@/components/trueread/results-view'
-import { DetailView } from '@/components/trueread/detail-view'
+import dynamic from 'next/dynamic'
 import { Footer } from '@/components/trueread/footer'
-import { ReadingList } from '@/components/trueread/reading-list'
 import { SearchProgress } from '@/components/trueread/search-progress'
 import { ScrollToTop } from '@/components/trueread/scroll-to-top'
-import { KeyboardHelp } from '@/components/trueread/keyboard-help'
+import { DiscoverIntro } from '@/components/trueread/discover-intro'
 import { useLocalStorage } from '@/components/trueread/use-local-storage'
 import { useToast } from '@/hooks/use-toast'
 import type { Book, BookSource, SearchResponse } from '@/components/trueread/types'
@@ -21,13 +18,25 @@ import { AuthButton } from '@/components/trueread/auth-button'
 import { AUTH_ENABLED } from '@/lib/features'
 import { NavMenu } from '@/components/trueread/nav-menu'
 import { ReadingIntentView } from '@/components/trueread/reading-intent-view'
-import { IntentResultsView } from '@/components/trueread/intent-results-view'
 import type { UserReadingIntent } from '@/lib/intent-matcher'
 import { Switch } from '@/components/ui/switch'
 import { Bookmark, Compass } from 'lucide-react'
-import { ShelfView } from '@/components/trueread/shelf-view'
 import './shelf-theme.css'
 import { matchBooksByIntent } from '@/lib/intent-matcher'
+
+// Everything the first screen (the mood quiz) does not need loads on demand,
+// so the first visit downloads and runs far less JavaScript. These are only
+// ever shown after the visitor acts, so skipping server rendering loses nothing.
+const HomeView = dynamic(() => import('@/components/trueread/home-view').then((m) => m.HomeView), { ssr: false })
+const ResultsView = dynamic(() => import('@/components/trueread/results-view').then((m) => m.ResultsView), { ssr: false })
+const DetailView = dynamic(() => import('@/components/trueread/detail-view').then((m) => m.DetailView), { ssr: false })
+const IntentResultsView = dynamic(
+  () => import('@/components/trueread/intent-results-view').then((m) => m.IntentResultsView),
+  { ssr: false },
+)
+const ShelfView = dynamic(() => import('@/components/trueread/shelf-view').then((m) => m.ShelfView), { ssr: false })
+const ReadingList = dynamic(() => import('@/components/trueread/reading-list').then((m) => m.ReadingList), { ssr: false })
+const KeyboardHelp = dynamic(() => import('@/components/trueread/keyboard-help').then((m) => m.KeyboardHelp), { ssr: false })
 
 const MAX_RESULTS = 24
 /** Max recent searches persisted to localStorage. */
@@ -507,7 +516,10 @@ export default function Page() {
 
       {/* Main view — animated transitions between intent/intent-results/home/results/detail */}
       <main className="flex-1">
-        <AnimatePresence mode="wait">
+        {/* initial={false}: the first view is already in the server HTML at full opacity.
+            Fading it in from 0 after hydration hid the page (and the Largest Contentful
+            Paint) until all the JavaScript had run. */}
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={viewKey}
             initial={{ opacity: 0, y: 8 }}
@@ -516,10 +528,14 @@ export default function Page() {
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
             {view.name === 'intent' && (
-              <ReadingIntentView
-                onSubmitIntent={handleIntentSubmit}
-                onSkipToSearch={handleSkipToSearch}
-              />
+              <>
+                <ReadingIntentView
+                  onSubmitIntent={handleIntentSubmit}
+                  onSkipToSearch={handleSkipToSearch}
+                />
+                {/* Server-rendered text and structured data for search and AI crawlers. */}
+                <DiscoverIntro />
+              </>
             )}
 
             {view.name === 'intent-results' && uiMode === 'shelf' && (

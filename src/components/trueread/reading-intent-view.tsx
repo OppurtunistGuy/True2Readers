@@ -105,7 +105,7 @@ export function ReadingIntentView({
               <label className="text-xs sm:text-sm font-bold text-slate-900">
                 1. What do you want to feel?
               </label>
-              <span className="text-[10px] font-medium text-slate-400">Select any</span>
+              <span className="text-[10px] font-medium text-slate-500">Select any</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {FEEL_OPTIONS.map((opt) => {
@@ -147,7 +147,7 @@ export function ReadingIntentView({
               <label className="text-xs sm:text-sm font-bold text-slate-900">
                 2. How much effort do you want?
               </label>
-              <span className="text-[10px] font-medium text-slate-400">Single select</span>
+              <span className="text-[10px] font-medium text-slate-500">Single select</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {EFFORT_OPTIONS.map((opt) => {
@@ -179,7 +179,7 @@ export function ReadingIntentView({
               <label className="text-xs sm:text-sm font-bold text-slate-900">
                 3. What matters most?
               </label>
-              <span className="text-[10px] font-medium text-slate-400">Select up to 2</span>
+              <span className="text-[10px] font-medium text-slate-500">Select up to 2</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {FOCUS_OPTIONS.map((opt) => {

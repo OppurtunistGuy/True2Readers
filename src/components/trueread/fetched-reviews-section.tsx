@@ -84,7 +84,7 @@ export function FetchedReviewsSection({ bookId, title }: FetchedReviewsSectionPr
       {/* 3 Metrics Row */}
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
             PACING
           </div>
           <div className="mt-1 font-bold text-slate-800 text-[11px] truncate">
@@ -94,7 +94,7 @@ export function FetchedReviewsSection({ bookId, title }: FetchedReviewsSectionPr
         </div>
 
         <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
             TONE
           </div>
           <div className="mt-1 font-bold text-slate-800 text-[11px] truncate">
@@ -104,7 +104,7 @@ export function FetchedReviewsSection({ bookId, title }: FetchedReviewsSectionPr
         </div>
 
         <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
             DIALOGUE
           </div>
           <div className="mt-1 font-bold text-slate-800 text-[11px] truncate">

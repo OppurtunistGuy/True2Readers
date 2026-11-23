@@ -97,7 +97,7 @@ export function IntentResultsView({
 
           {/* Active Intent Chips */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-medium text-slate-400 mr-1">Your mood:</span>
+            <span className="text-[11px] font-medium text-slate-500 mr-1">Your mood:</span>
             {intentChips.map((chip) => (
               <span
                 key={chip}
@@ -188,7 +188,7 @@ export function IntentResultsView({
                 <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
                   {/* Why it surfaced */}
                   <div className="space-y-0.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                       Why it surfaced
                     </span>
                     <p className="text-slate-700 leading-snug">{item.whySurfaced}</p>

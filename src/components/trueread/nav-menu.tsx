@@ -244,7 +244,7 @@ export function NavMenu({ onOpenKeyboardHelp }: NavMenuProps) {
                 )}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                 <span>&copy; {new Date().getFullYear()} Thinkable & Co.</span>
                 <button
                   type="button"

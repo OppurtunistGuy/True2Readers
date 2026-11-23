@@ -136,7 +136,7 @@ export function ShelfDetail({
             <dl className="mt-4 hidden space-y-1.5 text-xs lg:block">
               {facts.map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 border-b border-[#141414]/15 pb-1.5">
-                  <dt className="text-[#6D6A63]">{k}</dt>
+                  <dt className="text-[#5C5952]">{k}</dt>
                   <dd className="truncate text-right font-medium">{v}</dd>
                 </div>
               ))}
@@ -159,7 +159,7 @@ export function ShelfDetail({
             <h1 className="text-3xl font-semibold leading-tight tracking-tight text-[#1F3FB0] sm:text-4xl">
               {book.title}
             </h1>
-            {book.subtitle && <p className="mt-1 text-base text-[#6D6A63]">{book.subtitle}</p>}
+            {book.subtitle && <p className="mt-1 text-base text-[#5C5952]">{book.subtitle}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
               <button
                 type="button"
@@ -168,7 +168,7 @@ export function ShelfDetail({
               >
                 {primaryAuthor}
               </button>
-              {year && <span className="text-[11px] tracking-wide text-[#6D6A63]">{year}</span>}
+              {year && <span className="text-[11px] tracking-wide text-[#5C5952]">{year}</span>}
               {categories.slice(0, 3).map((c) => (
                 <button
                   key={c}
@@ -236,7 +236,7 @@ export function ShelfDetail({
                 {previewText}
               </blockquote>
               {!hasSample && (
-                <p className="mt-2 pl-4 text-[11px] text-[#6D6A63]">Publisher description — no text sample available.</p>
+                <p className="mt-2 pl-4 text-[11px] text-[#5C5952]">Publisher description — no text sample available.</p>
               )}
             </Section>
           )}
@@ -252,12 +252,12 @@ export function ShelfDetail({
           {profile && (
             <Section
               title="What readers experience"
-              aside={<span className="text-[11px] text-[#6D6A63]">Curated by True2Readers</span>}
+              aside={<span className="text-[11px] text-[#5C5952]">Curated by True2Readers</span>}
             >
               <dl className="grid gap-x-10 gap-y-5 sm:grid-cols-2">
                 {dims.map(([name, d]) => (
                   <div key={name as string} className="border-t border-[#141414]/15 pt-2.5">
-                    <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6D6A63]">{name as string}</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5C5952]">{name as string}</dt>
                     <dd className="mt-0.5 text-sm font-semibold">{(d as { label: string }).label}</dd>
                     <dd className="mt-0.5 text-sm leading-snug text-[#141414]/75">{(d as { nuance: string }).nuance}</dd>
                   </div>

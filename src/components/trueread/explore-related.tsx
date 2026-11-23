@@ -59,7 +59,7 @@ export function ExploreRelatedProps({ book, onSearch }: ExploreRelatedProps) {
         ))}
       </div>
 
-      <p className="mt-3 text-[11px] text-slate-400">
+      <p className="mt-3 text-[11px] text-slate-500">
         Click to discover more books in these genres
       </p>
     </section>

@@ -184,7 +184,7 @@ export function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
               <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
                 {SHORTCUT_GROUPS.map((group, gi) => (
                   <div key={group.title} className={cn(gi > 0 && 'mt-5')}>
-                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {group.title}
                     </h3>
                     <ul className="flex flex-col gap-1">
@@ -220,7 +220,7 @@ export function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
 
               {/* Footer */}
               <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-3">
-                <p className="text-center text-xs text-slate-400">
+                <p className="text-center text-xs text-slate-500">
                   Press{' '}
                   <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
                     Esc

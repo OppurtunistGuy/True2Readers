@@ -142,7 +142,7 @@ export function AiBreakdown({ book }: AiBreakdownProps) {
         ))}
       </div>
 
-      <p className="text-[10px] text-slate-400 italic text-center border-t border-slate-100 pt-2">
+      <p className="text-[10px] text-slate-500 italic text-center border-t border-slate-100 pt-2">
         Mock analysis — not a real AI call.
       </p>
     </div>

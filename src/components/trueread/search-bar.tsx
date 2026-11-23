@@ -122,7 +122,7 @@ export const SearchBar = React.forwardRef<HTMLFormElement, SearchBarProps>(
             autoCorrect="off"
             spellCheck={false}
             className={cn(
-              'h-12 md:h-14 w-full rounded-xl border-0 bg-transparent pl-12 pr-3 text-base md:text-lg text-slate-900 placeholder:text-slate-400 shadow-none focus-visible:ring-0',
+              'h-12 md:h-14 w-full rounded-xl border-0 bg-transparent pl-12 pr-3 text-base md:text-lg text-slate-900 placeholder:text-slate-500 shadow-none focus-visible:ring-0',
               '[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-cancel-button]:hidden',
             )}
             aria-label="Search books"
@@ -130,7 +130,7 @@ export const SearchBar = React.forwardRef<HTMLFormElement, SearchBarProps>(
           />
           {showHint && !isLoading && value.length === 0 && !isFocused && (
             <kbd
-              className="pointer-events-none absolute right-28 top-1/2 hidden -translate-y-1/2 select-none items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 md:flex"
+              className="pointer-events-none absolute right-28 top-1/2 hidden -translate-y-1/2 select-none items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 md:flex"
               aria-hidden="true"
             >
               /
@@ -194,7 +194,7 @@ export const SearchBar = React.forwardRef<HTMLFormElement, SearchBarProps>(
           autoCorrect="off"
           spellCheck={false}
           className={cn(
-            'h-10 w-full min-w-[8rem] border-0 bg-transparent pl-9 pr-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-none focus-visible:ring-0',
+            'h-10 w-full min-w-[8rem] border-0 bg-transparent pl-9 pr-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-none focus-visible:ring-0',
             '[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-cancel-button]:hidden',
           )}
           aria-label="Search books"

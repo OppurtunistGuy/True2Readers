@@ -57,3 +57,5 @@ server.log
 prisma/db/
 # Skills directory
 /skills/
+# test evidence and reports (large, generated)
+uat-evidence/

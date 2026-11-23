@@ -155,7 +155,7 @@ export function CompareModal({
                   }}
                 >
                   <div className="flex items-end">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Book
                     </span>
                   </div>
@@ -201,7 +201,7 @@ export function CompareModal({
                           <StarRating rating={book.rating} size="sm" showValue />
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-500">—</span>
                       )}
                     </MetricCell>
                   ))}
@@ -219,7 +219,7 @@ export function CompareModal({
                           {book.pageCount}
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-500">—</span>
                       )}
                     </MetricCell>
                   ))}
@@ -238,7 +238,7 @@ export function CompareModal({
                           {rt.label}
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-500">—</span>
                       )}
                     </MetricCell>
                   ))}
@@ -257,7 +257,7 @@ export function CompareModal({
                           {book.year}
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-500">—</span>
                       )}
                     </MetricCell>
                   ))}
@@ -332,7 +332,7 @@ export function CompareModal({
 
               {/* Footer */}
               <div className="shrink-0 border-t border-slate-100 bg-slate-50/50 px-5 py-3">
-                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-500">
                   <Trophy className="size-3 text-amber-500" strokeWidth={2} />
                   Winners are determined by real book data only
                 </p>

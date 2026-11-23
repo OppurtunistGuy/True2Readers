@@ -392,7 +392,7 @@ export function ResultsView({
             <AnimatedCount value={totalItems} />{' '}
             results from {sourceLabel}
             {totalItems > 0 && (
-              <span className="ml-2 hidden text-xs text-slate-400 sm:inline">
+              <span className="ml-2 hidden text-xs text-slate-500 sm:inline">
                 · Showing{' '}
                 <span className="tabular-nums font-medium text-slate-500">
                   {(page - 1) * maxResults + 1}–

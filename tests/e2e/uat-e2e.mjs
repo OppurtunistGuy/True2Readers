@@ -89,7 +89,7 @@ const submitQuiz = async (page) => {
   await page.getByText('Show books that fit').click()
 }
 const shelfReady = async (page) => {
-  await page.locator('[role=listbox] [role=option]').first().waitFor({ timeout: 30000 })
+  await page.locator('[data-shelf] [data-shelf-item]').first().waitFor({ timeout: 30000 })
   await sleep(900)
 }
 const caption = (page) => page.locator('main h2').first().innerText()
@@ -162,7 +162,7 @@ await test('E04', 'Shelf: first book is never blank — generated cover shows wh
   await shelfReady(p)
   const t0 = Date.now()
   const faceText = await p.evaluate(() => {
-    const el = document.querySelectorAll('[role=listbox] [role=option]')[0]?.parentElement?.children?.[1]
+    const el = document.querySelectorAll('[data-shelf] [data-shelf-item]')[0]?.parentElement?.children?.[1]
     return el ? el.innerText.replace(/\s+/g, ' ').trim() : ''
   })
   note(`checked at ~${Date.now() - t0} ms after the shelf appeared, with images still held back`)
@@ -173,12 +173,12 @@ await test('E04', 'Shelf: first book is never blank — generated cover shows wh
   const t1 = Date.now()
   await p
     .waitForFunction(() => {
-      const img = document.querySelectorAll('[role=listbox] [role=option]')[0]?.parentElement?.children?.[1]?.querySelector('img')
+      const img = document.querySelectorAll('[data-shelf] [data-shelf-item]')[0]?.parentElement?.children?.[1]?.querySelector('img')
       return !!img && img.complete && img.naturalWidth > 0 && img.style.opacity === '1'
     }, null, { timeout: 40000 })
     .catch(() => {})
   const op = await p.evaluate(() => {
-    const img = document.querySelectorAll('[role=listbox] [role=option]')[0]?.parentElement?.children?.[1]?.querySelector('img')
+    const img = document.querySelectorAll('[data-shelf] [data-shelf-item]')[0]?.parentElement?.children?.[1]?.querySelector('img')
     return img ? { done: img.complete && img.naturalWidth > 0, opacity: img.style.opacity } : null
   })
   note(`real image finished loading ~${Math.round((Date.now() - t1) / 1000)} s after the check (5 s of it was the artificial hold)`)
@@ -192,7 +192,7 @@ await test('E05', 'Shelf: 15 curated picks, navigate with keys, long titles fit 
   await setMode(p, 'shelf')
   await submitQuiz(p)
   await shelfReady(p)
-  check('books on shelf', await p.locator('[role=listbox] [role=option]').count(), 15)
+  check('books on shelf', await p.locator('[data-shelf] [data-shelf-item]').count(), 15)
   check('first caption', await caption(p), 'Atomic Habits')
   await shot(p, 'shelf-quiz-picks')
   for (let i = 0; i < 7; i++) {
@@ -204,12 +204,12 @@ await test('E05', 'Shelf: 15 curated picks, navigate with keys, long titles fit 
   const pos = await p.locator('main p', { hasText: /\d+ \/ \d+/ }).first().innerText()
   check('position indicator', pos, (s) => /^8 \/ 15/.test(s), 'starts with "8 / 15"')
   const spine = await p.evaluate(() => {
-    const o = [...document.querySelectorAll('[role=option]')].find((e) => e.getAttribute('aria-label')?.startsWith('Sapiens'))
+    const o = [...document.querySelectorAll('[data-shelf-item]')].find((e) => e.getAttribute('aria-label')?.startsWith('Sapiens'))
     return o ? o.innerText.replace(/\s+/g, ' ').trim() : ''
   })
   check('spine text is the short title', spine, (s) => /SAPIENS/.test(s) && !/HUMANKIND/i.test(s), 'contains SAPIENS, not the subtitle')
   const overflow = await p.evaluate(() => {
-    const o = [...document.querySelectorAll('[role=option]')].find((e) => e.getAttribute('aria-label')?.startsWith('Harry Potter'))
+    const o = [...document.querySelectorAll('[data-shelf-item]')].find((e) => e.getAttribute('aria-label')?.startsWith('Harry Potter'))
     const t = o?.querySelector('div > div:nth-child(2), div > div:last-child')
     return o ? { sw: o.scrollWidth <= o.clientWidth + 1, sh: o.scrollHeight <= o.clientHeight + 1 } : null
   })
@@ -273,7 +273,7 @@ await test('E07', 'Shelf → book page: preview first, reader experience next, n
   check('hidden-for-now items are not shown (Print / Share / Enlarge)', /\bPrint\b|Enlarge cover/.test(await p.locator('main').innerText()), false)
   await shot(p, 'shelf-book-page-sapiens')
   await p.getByRole('button', { name: /Back to your picks/i }).click()
-  await p.locator('[role=listbox]').waitFor({ timeout: 15000 })
+  await p.locator('[data-shelf]').waitFor({ timeout: 15000 })
   await sleep(1500)
   check('Back returns to the shelf at the same book', await caption(p), 'Sapiens: A Brief History of Humankind')
   await shot(p, 'shelf-back-from-book-same-position')
@@ -327,7 +327,7 @@ await test('E09', 'Shelf search: 24 real results, paging, no raw HTML, open a re
   await p.keyboard.press('Enter')
   await p.getByRole('heading', { name: /Results for/ }).waitFor({ timeout: 45000 })
   await shelfReady(p)
-  check('books on the shelf', await p.locator('[role=listbox] [role=option]').count(), 24)
+  check('books on the shelf', await p.locator('[data-shelf] [data-shelf-item]').count(), 24)
   const sub = await p.locator('main p').first().innerText().catch(() => '')
   note(`results header text: ${await p.getByRole('heading', { name: /Results for/ }).innerText()}`)
   await shot(p, 'shelf-search-fantasy')
@@ -441,7 +441,7 @@ await test('E14', 'Mobile (375×812): shelf fits one screen, controls reachable,
   check('"Open book" is inside the first screen', m.openBottom <= m.ih, true)
   await shot(p, 'mobile-shelf')
   const before = await caption(p)
-  const box = await p.locator('[role=listbox]').boundingBox()
+  const box = await p.locator('[data-shelf]').boundingBox()
   await p.mouse.move(box.x + box.width * 0.85, box.y + box.height / 2)
   await p.mouse.down()
   await p.mouse.move(box.x + box.width * 0.15, box.y + box.height / 2, { steps: 12 })
@@ -464,16 +464,16 @@ await test('E15', 'Keyboard & accessibility basics on the shelf', async () => {
   await submitQuiz(p)
   await shelfReady(p)
   const a = await p.evaluate(() => ({
-    listbox: !!document.querySelector('[role=listbox][aria-label]'),
-    options: document.querySelectorAll('[role=option][aria-label]').length,
+    listbox: !!document.querySelector('[data-shelf][aria-label]'),
+    options: document.querySelectorAll('[data-shelf-item][aria-label]').length,
     // Buttons inside aria-hidden regions (the decorative position ruler) are not exposed to assistive tech.
     unnamedButtons: [...document.querySelectorAll('button')].filter((b) => !b.closest('[aria-hidden="true"]') && !(b.getAttribute('aria-label') || b.textContent.trim())).length,
     imgsWithoutAlt: [...document.querySelectorAll('img')].filter((i) => !i.hasAttribute('alt')).length,
-    imgsWithoutSize: [...document.querySelectorAll('[role=listbox] img')].filter((i) => !i.getAttribute('width') || !i.getAttribute('height')).length,
+    imgsWithoutSize: [...document.querySelectorAll('[data-shelf] img')].filter((i) => !i.getAttribute('width') || !i.getAttribute('height')).length,
     lang: document.documentElement.lang,
   }))
-  check('shelf is a labelled listbox', a.listbox, true)
-  check('every book is a labelled option', a.options, 15)
+  check('shelf is a labelled carousel group', a.listbox, true)
+  check('every book is a labelled, focusable item', a.options, 15)
   check('buttons without a name', a.unnamedButtons, 0)
   check('images without alt', a.imgsWithoutAlt, 0)
   check('shelf images with explicit width/height (no layout shift)', a.imgsWithoutSize, 0)
@@ -545,6 +545,35 @@ await test('E17', `Accounts ${AUTH_MODE === 'on' ? 'ON (regression only)' : 'OFF
   note(`requests seen by the browser: ${p.reqs.length}; to /api/auth or /feedback: ${calls.length}`)
   check('browser made zero requests to account or feedback APIs', calls.length, 0)
   await p.context().close()
+})
+
+
+await test('E18', 'Crawlers: the raw HTML (no JavaScript) carries real text, structured data, FAQ, manifest and sitemap', async () => {
+  // Plain HTTP fetches, exactly what a search or AI crawler that does not run scripts receives.
+  const html = await (await fetch(BASE + '/')).text()
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<style[\s\S]*?<\/style>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+  note(`visible text in the raw HTML: ${text.length} characters`)
+  check('raw HTML has a real amount of text (> 3,000 chars)', text.length > 3000, true)
+  check('raw HTML contains the FAQ question', text.includes('What is True2Readers?'), true)
+  check('raw HTML lists the curated books (e.g. Atomic Habits, Gone Girl)', text.includes('Atomic Habits') && text.includes('Gone Girl'), true)
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]))
+  check('one JSON-LD block that parses', blocks.length, 1)
+  const graph = blocks[0]['@graph']
+  check('structured data types', graph.map((n) => n['@type']).sort().join(','), 'FAQPage,Organization,WebSite')
+  const faqNames = graph.find((n) => n['@type'] === 'FAQPage').mainEntity.map((q) => q.name)
+  check('every FAQ question in the structured data is also visible text', faqNames.every((q) => text.includes(q)), true)
+  const man = await fetch(BASE + '/manifest.webmanifest')
+  check('web app manifest is served', man.status, 200)
+  check('manifest start_url', (await man.json()).start_url, '/')
+  const sm = await (await fetch(BASE + '/sitemap.xml')).text()
+  check('sitemap lists the home page', /<loc>https?:\/\/[^<]+\/<\/loc>/.test(sm), true)
+  check('sitemap has no invented lastmod', sm.includes('<lastmod>'), false)
 })
 
 await browser.close()

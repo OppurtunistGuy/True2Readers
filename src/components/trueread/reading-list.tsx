@@ -241,7 +241,7 @@ export function ReadingList({
                       <button
                         type="button"
                         onClick={onClear}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-700"
                         aria-label="Clear reading list"
                       >
                         <ListX className="size-3.5" strokeWidth={2} />
@@ -262,7 +262,7 @@ export function ReadingList({
                 {/* Progress toward soft goal — only shown when there's at least 1 book. */}
                 {books.length > 0 && (
                   <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                    <div className="mb-1 flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-slate-500">
                       <span>{goalReached ? 'Goal reached' : 'Reading goal'}</span>
                       <span className="tabular-nums text-slate-500">
                         {books.length} / {READING_LIST_GOAL}
@@ -323,7 +323,7 @@ export function ReadingList({
                     sessions. */}
                 {books.length > 0 && (
                   <div className="mt-3 flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
                       View
                     </span>
                     <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
@@ -367,7 +367,7 @@ export function ReadingList({
                     see at a glance how many books they've finished. */}
                 {books.length > 0 && viewMode === 'list' && (
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
                       <BookCheck className="size-3" strokeWidth={2.25} />
                       Read
                     </span>
@@ -505,7 +505,7 @@ export function ReadingList({
                               </p>
                               <div className="mt-0.5 flex items-center gap-2">
                                 {book.year && (
-                                  <p className="text-xs tabular-nums text-slate-400">
+                                  <p className="text-xs tabular-nums text-slate-500">
                                     {book.year}
                                   </p>
                                 )}
@@ -637,7 +637,7 @@ export function ReadingList({
                                       </p>
                                       <div className="mt-0.5 flex items-center gap-2">
                                         {book.year && (
-                                          <p className="text-xs tabular-nums text-slate-400">
+                                          <p className="text-xs tabular-nums text-slate-500">
                                             {book.year}
                                           </p>
                                         )}

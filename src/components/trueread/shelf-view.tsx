@@ -321,10 +321,17 @@ export function ShelfView({
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
-      if (t && (t.closest('input,textarea,select,button,a,[contenteditable]') || t.isContentEditable)) return
-      if (e.key === 'ArrowLeft') go(-1)
-      else if (e.key === 'ArrowRight') go(1)
-      else if (e.key === 'Enter') openBook(st.current.active)
+      // A focused book on the shelf still takes the arrow keys (and handles Enter/Space itself).
+      const onItem = !!t?.closest('[data-shelf-item]')
+      if (!onItem && t && (t.closest('input,textarea,select,button,a,[contenteditable]') || t.isContentEditable)) return
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        go(e.key === 'ArrowLeft' ? -1 : 1)
+        if (onItem) {
+          // keep the focus ring on the book that is now centred (roving tabindex)
+          const next = Math.round(st.current.T)
+          spineRefs.current[next]?.focus({ preventScroll: true })
+        }
+      } else if (e.key === 'Enter' && !onItem) openBook(st.current.active)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -473,7 +480,7 @@ export function ShelfView({
       {/* Heading */}
       <div className="relative z-20 px-4 pt-2 text-center sm:px-8 sm:pt-3">
         <h1 className="text-base font-semibold tracking-tight text-[#1F3FB0] sm:text-xl">{heading}</h1>
-        {subheading && <p className="mt-0.5 hidden text-xs text-[#6D6A63] sm:block">{subheading}</p>}
+        {subheading && <p className="mt-0.5 hidden text-xs text-[#5C5952] sm:block">{subheading}</p>}
         {chips && chips.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1 sm:mt-2 sm:gap-1.5">
             {chips.map((c) => (
@@ -489,7 +496,7 @@ export function ShelfView({
       </div>
 
       {n === 0 ? (
-        <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#6D6A63]">
+        <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#5C5952]">
           No books to show. Try a different search.
         </div>
       ) : (
@@ -504,8 +511,10 @@ export function ShelfView({
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
             onPointerLeave={onPointerLeave}
-            role="listbox"
-            aria-label="Recommended books shelf"
+            role="group"
+            aria-roledescription="carousel"
+            aria-label="Recommended books"
+            data-shelf
           >
             <div
               className="absolute left-1/2 top-1/2 h-0 w-0"
@@ -547,11 +556,20 @@ export function ShelfView({
                       ref={(el) => {
                         spineRefs.current[i] = el
                       }}
-                      role="option"
-                      aria-selected={i === active}
-                      aria-label={`${b.title} by ${b.authors.join(', ')}`}
+                      role="button"
+                      data-shelf-item
+                      tabIndex={i === active ? 0 : -1}
+                      aria-current={i === active ? 'true' : undefined}
+                      // The name starts with the words printed on the spine (WCAG 2.5.3), then the author.
+                      aria-label={`${mainTitle(b.title)} ${b.authors[0] ?? ''}`.trim()}
                       onClick={() => onTapeClick(i)}
-                      className="absolute overflow-hidden rounded-[2px] [backface-visibility:hidden]"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onTapeClick(i)
+                        }
+                      }}
+                      className="absolute overflow-hidden rounded-[2px] [backface-visibility:hidden] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F3FB0]"
                       style={{
                         top: 'calc(var(--Hp) / -2)',
                         height: 'var(--Hp)',
@@ -586,6 +604,9 @@ export function ShelfView({
                         >
                           {spineText}
                         </div>
+                        {/* A real space between title and author in the page text (flex ignores it visually),
+                            so the visible text reads "TITLE AUTHOR" and matches the accessible name. */}
+                        {' '}
                         <div
                           className="shrink-0 overflow-hidden text-center font-semibold opacity-80"
                           style={{
@@ -664,6 +685,10 @@ export function ShelfView({
 
           {/* Caption + actions */}
           <div className="relative z-20 mx-auto flex w-full max-w-2xl flex-col items-center gap-2 px-4 pb-3 text-center">
+            {/* Announced by screen readers when the centred book changes. */}
+            <p className="sr-only" aria-live="polite">
+              {current ? `${active + 1} of ${n}: ${current.title} by ${current.authors.join(', ')}` : ''}
+            </p>
             <div className="flex w-full items-center justify-between gap-2">
               <button
                 type="button"
@@ -750,7 +775,7 @@ export function ShelfView({
                 </button>
               ))}
             </div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6D6A63]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5C5952]">
               {active + 1} / {n}
               <span className="hidden sm:inline"> · drag, scroll or use ← →</span>
               <span className="sm:hidden"> · swipe</span>
@@ -766,7 +791,7 @@ export function ShelfView({
                 >
                   ← Previous 24
                 </button>
-                <span className="text-[#6D6A63]">
+                <span className="text-[#5C5952]">
                   Page {pagination.page} of {totalPages}
                 </span>
                 <button
